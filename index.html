@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>STS — Seasonal Time System</title>
+  <style>
+    :root{--bg:#0b0e12;--fg:#e9eef5;--muted:#a9b4c2;--accent:#7cc7ff;--card:#131821;--warn:#ffcc66;--danger:#ff6b6b}
+    html,body{height:100%}
+    body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.5 system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif}
+    .wrap{max-width:980px;margin:0 auto;padding:20px}
+    h1{font-size:1.6rem;margin:0 0 4px;text-align:center}
+    .sub{color:var(--muted);margin:0 0 18px;text-align:center}
+    .grid{display:grid;gap:16px;grid-template-columns:1fr}
+    @media (min-width:900px){ .grid{grid-template-columns:1fr 1fr} }
+    .card{background:var(--card);border:1px solid #1f2633;border-radius:14px;padding:16px}
+    .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+    .muted{color:var(--muted)}
+    .output{font-size:2rem;margin-top:6px}
+    .small{font-size:0.92rem;color:var(--muted)}
+    .tiny{font-size:0.85rem;color:var(--muted)}
+    label{display:block;font-size:0.9rem;margin:10px 0 4px}
+    input,select,button{background:#0f1420;color:var(--fg);border:1px solid #243048;border-radius:10px;padding:10px 12px;font:inherit}
+    button{cursor:pointer}
+    .cols{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+    .sep{height:1px;background:#1f2633;margin:10px 0}
+    .error{color:var(--danger)}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>STS — Seasonal Time System</h1>
+    <p class="sub">Aligning time with natural rhythms.</p>
+
+    <div class="grid">
+      <!-- AUTOMATIC -->
+      <div class="card">
+        <div class="row" style="justify-content:space-between;">
+          <strong>Automatic</strong>
+          <div class="row">
+            <span class="muted">Hemisphere</span>
+            <select id="hemiAuto">
+              <option value="north" selected>North</option>
+              <option value="south">South</option>
+            </select>
+          </div>
+        </div>
+
+        <div id="liveSTS" class="output">--:--</div>
+        <div id="liveLine1" class="small">Local time | UTC 0</div>
+        <div id="liveLine2" class="tiny">Day hour length: — min | Night hour length: — min | minute-of-year: —</div>
+        <div id="autoErr" class="tiny error"></div>
+      </div>
+
+      <!-- MANUAL -->
+      <div class="card">
+        <div class="row" style="justify-content:space-between;">
+          <strong>Manual</strong>
+          <div class="row">
+            <span class="muted">Hemisphere</span>
+            <select id="hemiMan">
+              <option value="north" selected>North</option>
+              <option value="south">South</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="cols">
+          <div>
+            <label for="dateIn">Date</label>
+            <input id="dateIn" type="date" />
+          </div>
+          <div>
+            <label for="timeIn">Time</label>
+            <input id="timeIn" type="time" step="60" />
+          </div>
+          <div>
+            <label for="tzIn">Time zone (IANA)</label>
+            <input id="tzIn" type="text" placeholder="e.g., Europe/Rome" />
+          </div>
+          <div>
+            <label for="dstIn">Daylight Saving Time</label>
+            <select id="dstIn">
+              <option value="auto" selected>Auto</option>
+              <option value="on">On</option>
+              <option value="off">Off</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="sep"></div>
+        <div class="row" style="justify-content:space-between;">
+          <button id="btnCalc">Compute STS</button>
+          <div class="tiny muted">The manual panel does not interfere with the live clock.</div>
+        </div>
+
+        <div id="manSTS" class="output">--:--</div>
+        <div id="manLine1" class="small">Local time | UTC 0</div>
+        <div id="manLine2" class="tiny">Day hour length: — min | Night hour length: — min | minute-of-year: —</div>
+        <div id="manErr" class="tiny error"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+  // ---------------------------
+  // Formatting helpers
+  // ---------------------------
+  const pad2 = n => n.toString().padStart(2,'0');
+  const fmtHM = (h,m) => `${pad2(h)}:${pad2(m)}`;
+  const fmtIsoUTC0 = d => `${d.getUTCFullYear()}-${pad2(d.getUTCMonth()+1)}-${pad2(d.getUTCDate())} ${pad2(d.getUTCHours())}:${pad2(d.getUTCMinutes())}`;
+  const fmtIsoLocal = d => `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())} ${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+
+  // ---------------------------
+  // Load eqsol.json (UTC0 anchors 2025–2050)
+  // ---------------------------
+  let EQSOL_DB = null; // {meta, data:{YYYY:{eq1,sol1,eq2,sol2}}}
+
+  async function loadEqSolDB(){
+    const res = await fetch('./eqsol.json', {cache:'no-cache'});
+    if(!res.ok) throw new Error(`Cannot load eqsol.json (HTTP ${res.status})`);
+    EQSOL_DB = await res.json();
+  }
+
+  // ---------------------------
+  // Time zone & DST via IANA tzdata in the runtime
+  // ---------------------------
+  function resolvedLocalZone(){
+    try{ return Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'; }
+    catch{ return 'UTC'; }
+  }
+
+  // Returns offset (minutes, east positive) for the given UTC instant and zone
+  function offsetMinutesForZone(dateUTC, tz){
+    let val = '';
+    const optsLong = { timeZone: tz, timeZoneName: 'longOffset', hour12:false, year:'numeric', month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit', second:'2-digit' };
+    const optsShort= { timeZone: tz, timeZoneName: 'shortOffset', hour12:false, year:'numeric', month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit', second:'2-digit' };
+    try{
+      val = new Intl.DateTimeFormat('en-US', optsLong).formatToParts(dateUTC).find(p=>p.type==='timeZoneName')?.value || '';
+    }catch{}
+    if(!val){
+      try{
+        val = new Intl.DateTimeFormat('en-US', optsShort).formatToParts(dateUTC).find(p=>p.type==='timeZoneName')?.value || '';
+      }catch{}
+    }
+    const m = val.match(/([+-])(\d{1,2})(?::?(\d{2}))?/);
+    if(!m) return 0;
+    const sign = m[1]==='-' ? -1 : 1;
+    const hh = parseInt(m[2],10);
+    const mm = m[3] ? parseInt(m[3],10) : 0;
+    return sign*(hh*60 + mm);
+  }
+
+  function isLeapYear(y){ return (y%4===0 && y%100!==0) || (y%400===0); }
+
+  // Standard offset (no DST) for a zone & year: take the smaller (more west) between Jan and Jul
+  function standardOffsetForYear(tz, year){
+    const jan = new Date(Date.UTC(year,0,1,12,0,0));
+    const jul = new Date(Date.UTC(year,6,1,12,0,0));
+    const offJan = offsetMinutesForZone(jan, tz);
+    const offJul = offsetMinutesForZone(jul, tz);
+    return Math.min(offJan, offJul);
+  }
+
+  // Is DST active for a wall-clock date/time in a given zone?
+  function isDSTActive(tz, y, M, d, h, m){
+    const instantUTC = new Date(Date.UTC(y, M-1, d, h, m, 0));
+    const offNow = offsetMinutesForZone(instantUTC, tz);
+    const std = standardOffsetForYear(tz, y);
+    return offNow > std;
+  }
+
+  // ---------------------------
+  // Anchors & minute-of-year (UTC0)
+  // ---------------------------
+  function toMinuteOfYearUTC0(isoUTC){
+    const d = new Date(isoUTC);
+    const start = Date.UTC(d.getUTCFullYear(),0,1,0,0,0);
+    return Math.floor((d.getTime() - start)/60000);
+  }
+
+  function anchorsForYear(year){
+    if(!EQSOL_DB || !EQSOL_DB.data || !EQSOL_DB.data[year]) return null;
+    const row = EQSOL_DB.data[year];
+    const a = toMinuteOfYearUTC0(row.eq1);
+    const b = toMinuteOfYearUTC0(row.sol1);
+    const c = toMinuteOfYearUTC0(row.eq2);
+    const d = toMinuteOfYearUTC0(row.sol2);
+    return {a,b,c,d, minutesInYear: (isLeapYear(year)?366:365)*1440};
+  }
+
+  function minuteOfYearUTC0FromEpoch(msUTC){
+    const d = new Date(msUTC);
+    const start = Date.UTC(d.getUTCFullYear(),0,1,0,0,0);
+    const P = (isLeapYear(d.getUTCFullYear())?366:365)*1440;
+    let k = Math.floor((msUTC - start)/60000);
+    if (k < 0) k = 0;
+    if (k >= P) k = P-1;
+    return {moy:k, year:d.getUTCFullYear(), minutesInYear:P};
+  }
+
+  // ---------------------------
+  // Seasonal curve (C¹ continuous) via Hermite interpolation
+  // Anchors: a:0, b:+1, c:0, d:-1, a+P:0
+  // Slopes: mB=0, mD=0; mA and mC computed from periodic neighbors
+  // ---------------------------
+  function hermite(y0, y1, m0, m1, t, L){
+    const t2 = t*t, t3 = t2*t;
+    const h00 =  2*t3 - 3*t2 + 1;
+    const h10 =    t3 - 2*t2 + t;
+    const h01 = -2*t3 + 3*t2;
+    const h11 =    t3 -   t2;
+    return h00*y0 + h10*m0*L + h01*y1 + h11*m1*L;
+  }
+
+  function seasonalScalarC1(m, anchors){
+    const {a,b,c,d,minutesInYear:P} = anchors;
+    const mA =  2 / ( (b - (d - P)) ); // (1 - (-1)) / (b - (d-P))
+    const mB =  0;
+    const mC = (-1 - 0) / (d - a);     // (yD - yA) / (d - a)
+    const mD =  0;
+
+    if (m >= a && m < b){
+      const L = (b - a), t = (m - a)/L;
+      return hermite(0, +1, mA, mB, t, L);
+    }
+    if (m >= b && m < c){
+      const L = (c - b), t = (m - b)/L;
+      return hermite(+1, 0, mB, mC, t, L);
+    }
+    if (m >= c && m < d){
+      const L = (d - c), t = (m - c)/L;
+      return hermite(0, -1, mC, mD, t, L);
+    }
+    const aP = a + P;
+    const L = (aP - d), t = (m >= d ? (m - d)/L : (m + P - d)/L);
+    return hermite(-1, 0, mD, mA, t, L);
+  }
+
+  // ---------------------------
+  // Day/Night hour lengths by hemisphere
+  // ---------------------------
+  const AMP = 10; // ±10 minutes
+  function hourLengthsForMinute(m, anchors, hemisphere){
+    let s = seasonalScalarC1(m, anchors);
+    if (hemisphere === 'south') s = -s;
+    return { dayLen: 60 + AMP*s, nightLen: 60 - AMP*s, s };
+  }
+
+  // ---------------------------
+  // Civil → STS conversions
+  // ---------------------------
+  // Converts a wall-clock datetime (user zone) to UTC epoch ms
+  // Rule: if DST is active at that wall-clock instant, subtract 60 minutes from wall time,
+  // then apply the zone's standard offset (no DST) to get UTC.
+  function wallClockToUTCms(y, M, d, h, m, tz, dstMode){ // M:1..12
+    const stdOff = standardOffsetForYear(tz, y); // minutes (east +)
+    let dstActive = false;
+    if (dstMode === 'on') dstActive = true;
+    else if (dstMode === 'off') dstActive = false;
+    else dstActive = isDSTActive(tz, y, M, d, h, m);
+
+    let wallMinutes = h*60 + m - (dstActive ? 60 : 0);
+    let dateUTC = Date.UTC(y, M-1, d, 0, 0, 0);
+    while (wallMinutes < 0){ wallMinutes += 1440; dateUTC -= 86400000; }
+    while (wallMinutes >= 1440){ wallMinutes -= 1440; dateUTC += 86400000; }
+
+    const msUTC = dateUTC + wallMinutes*60000 - stdOff*60000;
+    return { msUTC, wallMinutes, stdOff, dstActive };
+  }
+
+  // Map wall-clock minutes (00:00..24:00) to STS minutes using the 3 fixed civil blocks
+  function minutesToSTS(wallMinutes, dayLen, nightLen){
+    const Kd = 60 / dayLen;
+    const Kn = 60 / nightLen;
+    let stsMin = 0;
+    if (wallMinutes < 360){ // 00–06 (night)
+      stsMin = wallMinutes * Kn;
+    } else if (wallMinutes < 1080){ // 06–18 (day)
+      stsMin = 360*Kn + (wallMinutes - 360)*Kd;
+    } else { // 18–24 (night)
+      stsMin = 360*Kn + 720*Kd + (wallMinutes - 1080)*Kn;
+    }
+    const hh = Math.floor(stsMin / 60) % 24;
+    const mm = Math.round(stsMin % 60);
+    return { hh, mm, stsMin };
+  }
+
+  // ---------------------------
+  // Automatic render
+  // ---------------------------
+  function autoUpdate(){
+    const now = new Date();
+    const tz = resolvedLocalZone();
+    const hemi = document.getElementById('hemiAuto').value;
+
+    try{
+      const y = now.getFullYear(), M = now.getMonth()+1, d = now.getDate(), h = now.getHours(), mi = now.getMinutes();
+      const { msUTC, wallMinutes } = wallClockToUTCms(y, M, d, h, mi, tz, 'auto');
+
+      const { moy, year } = minuteOfYearUTC0FromEpoch(msUTC);
+      const anc = anchorsForYear(year);
+      if (!anc) throw new Error(`Anchors not found for year ${year} in eqsol.json.`);
+
+      const { dayLen, nightLen } = hourLengthsForMinute(moy, anc, hemi);
+      const { hh, mm } = minutesToSTS(wallMinutes, dayLen, nightLen);
+
+      document.getElementById('liveSTS').textContent = fmtHM(hh, mm);
+
+      // "Local time | UTC 0" line
+      const offNow = offsetMinutesForZone(new Date(msUTC), tz);
+      const sign = offNow>=0?'+':'';
+      const offTxt = `UTC${sign}${Math.trunc(offNow/60)}:${pad2(Math.abs(offNow%60))}`;
+      const localLabel = `${fmtIsoLocal(now)} (${offTxt}, ${tz})`;
+      const utcLabel   = `${fmtIsoUTC0(new Date(msUTC))} (UTC 0)`;
+      document.getElementById('liveLine1').textContent = `${localLabel} | ${utcLabel}`;
+
+      document.getElementById('liveLine2').textContent =
+        `Day hour length: ${dayLen.toFixed(2)} min | Night hour length: ${nightLen.toFixed(2)} min | minute-of-year: ${moy}`;
+
+      document.getElementById('autoErr').textContent = '';
+    }catch(err){
+      document.getElementById('autoErr').textContent = err.message || String(err);
+    }
+  }
+
+  // ---------------------------
+  // Manual render
+  // ---------------------------
+  function manualCompute(){
+    const dateStr = document.getElementById('dateIn').value;
+    const timeStr = document.getElementById('timeIn').value;
+    const tz = (document.getElementById('tzIn').value || '').trim();
+    const dstMode = document.getElementById('dstIn').value;
+    const hemi = document.getElementById('hemiMan').value;
+
+    const errEl = document.getElementById('manErr');
+    errEl.textContent = '';
+
+    try{
+      if (!dateStr || !timeStr) throw new Error('Please enter date and time.');
+      if (!tz) throw new Error('Please enter a valid IANA time zone (e.g., Europe/Rome).');
+
+      const [Y,M,D] = dateStr.split('-').map(Number);
+      const [h,m]   = timeStr.split(':').map(Number);
+
+      // Validate zone (throws if invalid)
+      void new Intl.DateTimeFormat('en-US', { timeZone: tz }).format();
+
+      const { msUTC, wallMinutes } = wallClockToUTCms(Y, M, D, h, m, tz, dstMode);
+      const { moy, year } = minuteOfYearUTC0FromEpoch(msUTC);
+      const anc = anchorsForYear(year);
+      if (!anc) throw new Error(`Anchors not found for year ${year} in eqsol.json.`);
+
+      const { dayLen, nightLen } = hourLengthsForMinute(moy, anc, hemi);
+      const { hh, mm } = minutesToSTS(wallMinutes, dayLen, nightLen);
+
+      document.getElementById('manSTS').textContent = fmtHM(hh, mm);
+
+      const inst = new Date(msUTC);
+      const offNow = offsetMinutesForZone(inst, tz);
+      const sign = offNow>=0?'+':'';
+      const offTxt = `UTC${sign}${Math.trunc(offNow/60)}:${pad2(Math.abs(offNow%60))}`;
+      // In manual mode, "Local time" is the wall clock provided by the user (not the -60 internal adjustment)
+      const localLabel = `${Y}-${pad2(M)}-${pad2(D)} ${pad2(h)}:${pad2(m)} (${offTxt}, ${tz})`;
+      const utcLabel   = `${fmtIsoUTC0(inst)} (UTC 0)`;
+      document.getElementById('manLine1').textContent = `${localLabel} | ${utcLabel}`;
+
+      document.getElementById('manLine2').textContent =
+        `Day hour length: ${dayLen.toFixed(2)} min | Night hour length: ${nightLen.toFixed(2)} min | minute-of-year: ${moy}`;
+    }catch(err){
+      errEl.textContent = err.message || String(err);
+      document.getElementById('manSTS').textContent = '--:--';
+      document.getElementById('manLine1').textContent = 'Local time | UTC 0';
+      document.getElementById('manLine2').textContent = 'Day hour length: — min | Night hour length: — min | minute-of-year: —';
+    }
+  }
+
+  // ---------------------------
+  // Boot
+  // ---------------------------
+  document.addEventListener('DOMContentLoaded', async () => {
+    try{
+      await loadEqSolDB();
+    }catch(err){
+      document.getElementById('autoErr').textContent = err.message || String(err);
+      document.getElementById('manErr').textContent = err.message || String(err);
+    }
+
+    // First render + align to next minute, then tick every minute
+    const kick = ()=>{
+      autoUpdate();
+      const now = new Date();
+      const msToNextMin = (60 - now.getSeconds())*1000 + (1000 - now.getMilliseconds());
+      setTimeout(()=>{ autoUpdate(); setInterval(autoUpdate, 60000); }, msToNextMin);
+    };
+    kick();
+
+    // UI listeners
+    document.getElementById('hemiAuto').addEventListener('change', autoUpdate);
+    document.getElementById('btnCalc').addEventListener('click', manualCompute);
+    document.getElementById('hemiMan').addEventListener('change', manualCompute);
+  });
+  </script>
+</body>
+</html>
