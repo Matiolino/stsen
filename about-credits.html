@@ -8,7 +8,9 @@ STS explores how timekeeping can reflect the annual cycle in a clear and consist
 The model is especially suited to temperate latitudes, roughly 30°–50°, where seasonal amplitude is intuitive and where a large share of the world’s population lives. It remains usable outside this band: near the equator the effect is modest by design; at higher latitudes it cannot solve very long nights or days, yet it can still offer a gentler progression across the year and slightly better use of available daylight than a rigid civil clock. Results do not depend on longitude and assume an idealized reference latitude (~30°) for amplitude.
 
 STS is not a sunrise/sunset clock and does not follow local solar altitude. It uses a single global seasonal reference (UTC 0) and a hemisphere toggle; hour lengths change continuously across the year through a smooth (C¹-continuous) curve constrained by equinox and solstice anchors. This framing is descriptive, not prescriptive: STS adapts hour lengths to daylight, leaving people free to organize their routines as they prefer.
-How the STS time is computed (high-level). The app starts from the user’s “UTC local” wall-clock time (either from the device or from manual input). First, it detects whether Daylight Saving Time is active at that exact wall-clock instant using the runtime’s IANA time-zone database; if DST is active, 60 minutes are subtracted from the wall-clock time by design. Then that adjusted instant is converted to UTC 0 using the zone’s standard (non-DST) offset. From this UTC 0 instant the app computes the minute-of-year (0..P−1, with P = 365/366 × 1440).
+
+How the STS time is computed (high-level).
+The app starts from the user’s “UTC local” wall-clock time (either from the device or from manual input). First, it detects whether Daylight Saving Time is active at that exact wall-clock instant using the runtime’s IANA time-zone database; if DST is active, 60 minutes are subtracted from the wall-clock time by design. Then that adjusted instant is converted to UTC 0 using the zone’s standard (non-DST) offset. From this UTC 0 instant the app computes the minute-of-year (0..P−1, with P = 365/366 × 1440).
 
 Anchors and seasonal curve.
 For each year (2025–2050), the app loads four UTC 0 timestamps from a local dataset (eqsol.json): March equinox, June solstice, September equinox, December solstice. These four anchors constrain a smooth seasonal scalar s ∈ [−1, +1] built with a C¹-continuous cubic Hermite interpolation across the four segments. The anchors are not equally spaced in time, so the curve is intentionally not perfectly symmetric. Values at the anchors are: equinoxes s = 0; June solstice s = +1; December solstice s = −1. For the Southern Hemisphere the sign is inverted.
@@ -32,4 +34,5 @@ Status and intent.
 The behavior is fixed by the description above. Any change will be explicit and documented. This page is intentionally minimal (vanilla HTML/JS/CSS) to remain portable and dependency-free.
 
 Credits.
+
 Concept and specification: Matteo Biagioli. Implementation: STS Web App (vanilla JS). © 2025 Matteo Biagioli. All rights reserved.
