@@ -102,6 +102,19 @@
     </div>
   </div>
 
+  <!-- About/Credits trigger + container -->
+  <div class="wrap">
+    <div class="row" style="justify-content:center; margin: 8px 0 0;">
+      <button id="btnAbout">About/Credits</button>
+    </div>
+
+    <div id="aboutCard" class="card" style="display:none; margin-top:12px;">
+      <div id="aboutContent" class="tiny" style="line-height:1.55; white-space:pre-wrap">
+        Loading…
+      </div>
+    </div>
+  </div>
+
   <script>
   // ---------------------------
   // Formatting helpers
@@ -123,7 +136,7 @@
   }
 
   // ---------------------------
-  // Time zone & DST via IANA tzdata in the runtime
+  // Time zone & DST via IANA tzdata
   // ---------------------------
   function resolvedLocalZone(){
     try{ return Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'; }
@@ -400,6 +413,27 @@
     document.getElementById('hemiAuto').addEventListener('change', autoUpdate);
     document.getElementById('btnCalc').addEventListener('click', manualCompute);
     document.getElementById('hemiMan').addEventListener('change', manualCompute);
+
+    // About/Credits loader (fetches ./about-credits.html on click)
+    document.getElementById('btnAbout').addEventListener('click', async ()=>{
+      const card = document.getElementById('aboutCard');
+      const box  = document.getElementById('aboutContent');
+
+      if (card.style.display === 'none') {
+        box.textContent = 'Loading…';
+        try {
+          const res = await fetch('./about-credits.html', { cache: 'no-cache' });
+          if (!res.ok) throw new Error('Cannot load about-credits.html');
+          box.innerHTML = await res.text(); // HTML fragment
+        } catch (e) {
+          box.textContent = e.message || String(e);
+        }
+        card.style.display = 'block';
+        card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      } else {
+        card.style.display = 'none';
+      }
+    });
   });
   </script>
 </body>
