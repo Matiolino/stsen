@@ -4,27 +4,57 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>STS — Seasonal Time System</title>
+
+  <!-- PWA meta -->
+  <link rel="manifest" href="./manifest.webmanifest">
+  <meta name="theme-color" content="#0b0e12">
+
   <style>
     :root{--bg:#0b0e12;--fg:#e9eef5;--muted:#a9b4c2;--accent:#7cc7ff;--card:#131821;--warn:#ffcc66;--danger:#ff6b6b}
+    *,*::before,*::after{box-sizing:border-box}
     html,body{height:100%}
-    body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.5 system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif}
+    body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.5 system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif;overflow-x:hidden}
+    img,svg,video{max-width:100%;height:auto;display:block}
+
     .wrap{max-width:980px;margin:0 auto;padding:20px}
     h1{font-size:1.6rem;margin:0 0 4px;text-align:center}
     .sub{color:var(--muted);margin:0 0 18px;text-align:center}
+
     .grid{display:grid;gap:16px;grid-template-columns:1fr}
     @media (min-width:900px){ .grid{grid-template-columns:1fr 1fr} }
+
     .card{background:var(--card);border:1px solid #1f2633;border-radius:14px;padding:16px}
     .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
     .muted{color:var(--muted)}
-    .output{font-size:2rem;margin-top:6px}
+
+    /* Big live clock (responsive) */
+    #liveSTS{font-size:clamp(2.6rem, 12vw, 5rem); line-height:1; letter-spacing:0.5px}
+    /* Manual clock: quieter */
+    #manSTS{font-size:clamp(1.8rem, 7vw, 2.4rem); line-height:1.1}
+
     .small{font-size:0.92rem;color:var(--muted)}
     .tiny{font-size:0.85rem;color:var(--muted)}
+    #liveLine1,#liveLine2,#manLine1,#manLine2{overflow-wrap:anywhere}
+
     label{display:block;font-size:0.9rem;margin:10px 0 4px}
     input,select,button{background:#0f1420;color:var(--fg);border:1px solid #243048;border-radius:10px;padding:10px 12px;font:inherit}
     button{cursor:pointer}
     .cols{display:grid;grid-template-columns:1fr 1fr;gap:10px}
     .sep{height:1px;background:#1f2633;margin:10px 0}
     .error{color:var(--danger)}
+
+    /* Mobile polish */
+    @media (max-width:480px){
+      .wrap{padding:14px}
+      h1{font-size:1.3rem}
+      .sub{font-size:0.95rem}
+      .card{padding:12px}
+      .grid{gap:12px}
+      .row{gap:8px}
+      .cols{grid-template-columns:1fr}
+      input,select,button{width:100%;min-height:44px;font-size:16px}
+      #btnAbout{width:100%}
+    }
   </style>
 </head>
 <body>
@@ -47,7 +77,12 @@
         </div>
 
         <div id="liveSTS" class="output">--:--</div>
-        <div id="liveLine1" class="small">Local time | UTC 0</div>
+        <div class="row" style="justify-content:space-between; gap:12px; margin-top:8px;">
+          <div class="small" id="liveLine1">Local time | UTC 0</div>
+          <label class="tiny" style="display:flex;align-items:center;gap:6px">
+            <input id="keepAwake" type="checkbox" style="width:auto;height:auto"> Keep screen on
+          </label>
+        </div>
         <div id="liveLine2" class="tiny">Day hour length: — min | Night hour length: — min | minute-of-year: —</div>
         <div id="autoErr" class="tiny error"></div>
       </div>
@@ -128,7 +163,6 @@
   // Load eqsol.json (UTC0 anchors 2025–2050)
   // ---------------------------
   let EQSOL_DB = null;
-
   async function loadEqSolDB(){
     const res = await fetch('./eqsol.json', {cache:'no-cache'});
     if(!res.ok) throw new Error(`Cannot load eqsol.json (HTTP ${res.status})`);
@@ -143,19 +177,12 @@
     catch{ return 'UTC'; }
   }
 
-  // Returns offset (minutes, east positive) for the given UTC instant and zone
   function offsetMinutesForZone(dateUTC, tz){
     let val = '';
     const optsLong = { timeZone: tz, timeZoneName: 'longOffset', hour12:false, year:'numeric', month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit', second:'2-digit' };
     const optsShort= { timeZone: tz, timeZoneName: 'shortOffset', hour12:false, year:'numeric', month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit', second:'2-digit' };
-    try{
-      val = new Intl.DateTimeFormat('en-US', optsLong).formatToParts(dateUTC).find(p=>p.type==='timeZoneName')?.value || '';
-    }catch{}
-    if(!val){
-      try{
-        val = new Intl.DateTimeFormat('en-US', optsShort).formatToParts(dateUTC).find(p=>p.type==='timeZoneName')?.value || '';
-      }catch{}
-    }
+    try{ val = new Intl.DateTimeFormat('en-US', optsLong).formatToParts(dateUTC).find(p=>p.type==='timeZoneName')?.value || '';}catch{}
+    if(!val){ try{ val = new Intl.DateTimeFormat('en-US', optsShort).formatToParts(dateUTC).find(p=>p.type==='timeZoneName')?.value || '';}catch{} }
     const m = val.match(/([+-])(\d{1,2})(?::?(\d{2}))?/);
     if(!m) return 0;
     const sign = m[1]==='-' ? -1 : 1;
@@ -166,7 +193,6 @@
 
   function isLeapYear(y){ return (y%4===0 && y%100!==0) || (y%400===0); }
 
-  // Standard offset (no DST) for a zone & year: take the smaller (more west) between Jan and Jul
   function standardOffsetForYear(tz, year){
     const jan = new Date(Date.UTC(year,0,1,12,0,0));
     const jul = new Date(Date.UTC(year,6,1,12,0,0));
@@ -175,7 +201,6 @@
     return Math.min(offJan, offJul);
   }
 
-  // Is DST active for a wall-clock date/time in a given zone?
   function isDSTActive(tz, y, M, d, h, m){
     const instantUTC = new Date(Date.UTC(y, M-1, d, h, m, 0));
     const offNow = offsetMinutesForZone(instantUTC, tz);
@@ -226,7 +251,7 @@
 
   function seasonalScalarC1(m, anchors){
     const {a,b,c,d,minutesInYear:P} = anchors;
-    const mA =  2 / ( (b - (d - P)) ); // (1 - (-1)) / (b - (d-P))
+    const mA =  2 / ( (b - (d - P)) );
     const mB =  0;
     const mC = (-1 - 0) / (d - a);
     const mD =  0;
@@ -262,17 +287,12 @@
   // Civil → STS conversion (with STS boundaries)
   // ---------------------------
   function minutesToSTS(wallMinutes, dayLen, nightLen){
-    // Speeds (STS minutes per civil minute) in each phase
     const Kd = 60 / dayLen;
     const Kn = 60 / nightLen;
 
-    // Civil minutes of each STS segment:
-    // 00:00 → STS 06:00  (night, 6h STS)  = 6 * nightLen
-    // STS 06:00 → STS 18:00 (day, 12h STS) = 12 * dayLen
-    // STS 18:00 → 24:00 (night, 6h STS)   = 6 * nightLen
-    const M1 = 6 * nightLen;
-    const M2 = 12 * dayLen;
-    const M12 = M1 + M2;
+    const M1 = 6 * nightLen;      // 00:00 → STS 06:00 (night)
+    const M2 = 12 * dayLen;       // STS 06:00 → STS 18:00 (day)
+    const M12 = M1 + M2;          // STS 18:00 (boundary)
 
     let stsMin;
     if (wallMinutes < M1){
@@ -285,7 +305,7 @@
 
     let hh = Math.floor(stsMin / 60) % 24;
     let mm = Math.round(stsMin % 60);
-    if (mm === 60){ mm = 0; hh = (hh + 1) % 24; } // carry
+    if (mm === 60){ mm = 0; hh = (hh + 1) % 24; }
     return { hh, mm, stsMin };
   }
 
@@ -293,7 +313,7 @@
   // Wall-clock → UTC0 helpers
   // ---------------------------
   function wallClockToUTCms(y, M, d, h, m, tz, dstMode){
-    const stdOff = standardOffsetForYear(tz, y); // minutes (east +)
+    const stdOff = standardOffsetForYear(tz, y);
     let dstActive = false;
     if (dstMode === 'on') dstActive = true;
     else if (dstMode === 'off') dstActive = false;
@@ -365,7 +385,6 @@
       const [Y,M,D] = dateStr.split('-').map(Number);
       const [h,m]   = timeStr.split(':').map(Number);
 
-      // Validate zone (throws if invalid)
       void new Intl.DateTimeFormat('en-US', { timeZone: tz }).format();
 
       const { msUTC, wallMinutes } = wallClockToUTCms(Y, M, D, h, m, tz, dstMode);
@@ -397,6 +416,26 @@
   }
 
   // ---------------------------
+  // Wake Lock (Keep screen on)
+  // ---------------------------
+  let wakeLock = null;
+  async function requestWakeLock(){
+    try{
+      wakeLock = await navigator.wakeLock.request('screen');
+      wakeLock.addEventListener('release', ()=>{ document.getElementById('keepAwake').checked = false; });
+    }catch(e){
+      document.getElementById('autoErr').textContent = (e && e.name==='NotAllowedError')
+        ? 'Keep screen on requires a user gesture.'
+        : (e?.message || String(e));
+      document.getElementById('keepAwake').checked = false;
+    }
+  }
+  function releaseWakeLock(){
+    if (wakeLock){ wakeLock.release(); wakeLock = null; }
+  }
+  document.addEventListener('visibilitychange', ()=>{ if (document.visibilityState === 'visible' && document.getElementById('keepAwake').checked){ requestWakeLock(); } });
+
+  // ---------------------------
   // Boot
   // ---------------------------
   document.addEventListener('DOMContentLoaded', async () => {
@@ -407,7 +446,6 @@
       document.getElementById('manErr').textContent = err.message || String(err);
     }
 
-    // First render + align to next minute, then tick every minute
     const kick = ()=>{
       autoUpdate();
       const now = new Date();
@@ -421,7 +459,14 @@
     document.getElementById('btnCalc').addEventListener('click', manualCompute);
     document.getElementById('hemiMan').addEventListener('change', manualCompute);
 
-    // About/Credits loader (fetches ./about-credits.html on click)
+    // Keep screen on toggle
+    const keepAwake = document.getElementById('keepAwake');
+    if (!('wakeLock' in navigator)) keepAwake.parentElement.style.display = 'none';
+    keepAwake.addEventListener('change', async (e)=>{
+      if (e.target.checked) await requestWakeLock(); else releaseWakeLock();
+    });
+
+    // About/Credits loader
     document.getElementById('btnAbout').addEventListener('click', async ()=>{
       const card = document.getElementById('aboutCard');
       const box  = document.getElementById('aboutContent');
@@ -441,6 +486,11 @@
         card.style.display = 'none';
       }
     });
+
+    // PWA: register service worker (best-effort)
+    if ('serviceWorker' in navigator){
+      try{ await navigator.serviceWorker.register('./service-worker.js'); }catch{}
+    }
   });
   </script>
 </body>
