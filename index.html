@@ -109,10 +109,29 @@
             <label for="timeIn">Time</label>
             <input id="timeIn" type="time" step="60" />
           </div>
+
+          <!-- Zone input mode -->
           <div>
+            <label for="zoneMode">Zone input</label>
+            <select id="zoneMode">
+              <option value="iana" selected>IANA time zone</option>
+              <option value="offset">UTC offset</option>
+            </select>
+          </div>
+
+          <!-- IANA input -->
+          <div id="ianaBox">
             <label for="tzIn">Time zone (IANA)</label>
             <input id="tzIn" type="text" placeholder="e.g., Europe/Rome" />
           </div>
+
+          <!-- Offset input -->
+          <div id="offsetBox" style="display:none">
+            <label for="offsetIn">UTC offset (no DST)</label>
+            <input id="offsetIn" type="text" placeholder="e.g., UTC+5, +5:30, -3, UTC-0330" />
+          </div>
+
+          <!-- DST -->
           <div>
             <label for="dstIn">Daylight Saving Time</label>
             <select id="dstIn">
@@ -120,6 +139,7 @@
               <option value="on">On</option>
               <option value="off">Off</option>
             </select>
+            <div id="dstNote" class="tiny muted" style="display:none">Ignored in UTC offset mode</div>
           </div>
         </div>
 
@@ -209,6 +229,23 @@
   }
 
   // ---------------------------
+  // UTC offset parsing (for Manual offset mode)
+  // ---------------------------
+  function parseUTCOffsetToMinutes(str){
+    if (!str) throw new Error('Please enter a UTC offset.');
+    let s = str.trim().toUpperCase();
+    s = s.replace(/^GMT|^UTC/,'').trim();
+    if (s === 'Z') return 0;
+    const m = s.match(/^([+-])?(\d{1,2})(?::?(\d{2}))?$/);
+    if (!m) throw new Error('Invalid UTC offset. Examples: UTC+5, +5:30, -3, UTC-0330');
+    const sign = (m[1] === '-') ? -1 : 1;
+    const hh = parseInt(m[2],10);
+    const mm = m[3] ? parseInt(m[3],10) : 0;
+    if (hh > 14 || mm >= 60) throw new Error('Offset out of range.');
+    return sign*(hh*60 + mm);
+  }
+
+  // ---------------------------
   // Anchors & minute-of-year (UTC0)
   // ---------------------------
   function toMinuteOfYearUTC0(isoUTC){
@@ -292,7 +329,7 @@
 
     const M1 = 6 * nightLen;      // 00:00 → STS 06:00 (night)
     const M2 = 12 * dayLen;       // STS 06:00 → STS 18:00 (day)
-    const M12 = M1 + M2;          // STS 18:00 (boundary)
+    const M12 = M1 + M2;          // STS 18:00 boundary
 
     let stsMin;
     if (wallMinutes < M1){
@@ -326,6 +363,15 @@
 
     const msUTC = dateUTC + wallMinutes*60000 - stdOff*60000;
     return { msUTC, wallMinutes, stdOff, dstActive };
+  }
+
+  function wallClockToUTCms_Offset(y, M, d, h, m, offsetMinutes){
+    let wallMinutes = h*60 + m; // no DST in offset mode
+    let dateUTC = Date.UTC(y, M-1, d, 0, 0, 0);
+    while (wallMinutes < 0){ wallMinutes += 1440; dateUTC -= 86400000; }
+    while (wallMinutes >= 1440){ wallMinutes -= 1440; dateUTC += 86400000; }
+    const msUTC = dateUTC + wallMinutes*60000 - offsetMinutes*60000;
+    return { msUTC, wallMinutes, offsetMinutes };
   }
 
   // ---------------------------
@@ -371,7 +417,9 @@
   function manualCompute(){
     const dateStr = document.getElementById('dateIn').value;
     const timeStr = document.getElementById('timeIn').value;
+    const zoneMode = document.getElementById('zoneMode').value;
     const tz = (document.getElementById('tzIn').value || '').trim();
+    const offsetStr = (document.getElementById('offsetIn').value || '').trim();
     const dstMode = document.getElementById('dstIn').value;
     const hemi = document.getElementById('hemiMan').value;
 
@@ -380,14 +428,27 @@
 
     try{
       if (!dateStr || !timeStr) throw new Error('Please enter date and time.');
-      if (!tz) throw new Error('Please enter a valid IANA time zone (e.g., Europe/Rome).');
 
       const [Y,M,D] = dateStr.split('-').map(Number);
       const [h,m]   = timeStr.split(':').map(Number);
 
-      void new Intl.DateTimeFormat('en-US', { timeZone: tz }).format();
+      let msUTC, wallMinutes, labelZone, offNow;
 
-      const { msUTC, wallMinutes } = wallClockToUTCms(Y, M, D, h, m, tz, dstMode);
+      if (zoneMode === 'offset'){
+        const offMin = parseUTCOffsetToMinutes(offsetStr);
+        ({ msUTC, wallMinutes } = wallClockToUTCms_Offset(Y, M, D, h, m, offMin));
+        offNow = offMin;
+        labelZone = `UTC${offMin>=0?'+':''}${Math.trunc(offMin/60)}:${pad2(Math.abs(offMin%60))}`;
+      } else {
+        if (!tz) throw new Error('Please enter a valid IANA time zone (e.g., Europe/Rome).');
+        // Validate zone (throws if invalid)
+        void new Intl.DateTimeFormat('en-US', { timeZone: tz }).format();
+        ({ msUTC, wallMinutes } = wallClockToUTCms(Y, M, D, h, m, tz, dstMode));
+        const inst = new Date(msUTC);
+        offNow = offsetMinutesForZone(inst, tz);
+        labelZone = `${tz}`;
+      }
+
       const { moy, year } = minuteOfYearUTC0FromEpoch(msUTC);
       const anc = anchorsForYear(year);
       if (!anc) throw new Error(`Anchors not found for year ${year} in eqsol.json.`);
@@ -398,10 +459,9 @@
       document.getElementById('manSTS').textContent = fmtHM(hh, mm);
 
       const inst = new Date(msUTC);
-      const offNow = offsetMinutesForZone(inst, tz);
       const sign = offNow>=0?'+':'';
       const offTxt = `UTC${sign}${Math.trunc(offNow/60)}:${pad2(Math.abs(offNow%60))}`;
-      const localLabel = `${Y}-${pad2(M)}-${pad2(D)} ${pad2(h)}:${pad2(m)} (${offTxt}, ${tz})`;
+      const localLabel = `${Y}-${pad2(M)}-${pad2(D)} ${pad2(h)}:${pad2(m)} (${offTxt}, ${labelZone})`;
       const utcLabel   = `${fmtIsoUTC0(inst)} (UTC 0)`;
       document.getElementById('manLine1').textContent = `${localLabel} | ${utcLabel}`;
 
@@ -458,6 +518,23 @@
     document.getElementById('hemiAuto').addEventListener('change', autoUpdate);
     document.getElementById('btnCalc').addEventListener('click', manualCompute);
     document.getElementById('hemiMan').addEventListener('change', manualCompute);
+
+    // Zone mode toggle
+    const zoneModeSel = document.getElementById('zoneMode');
+    const ianaBox = document.getElementById('ianaBox');
+    const offsetBox = document.getElementById('offsetBox');
+    const dstSel = document.getElementById('dstIn');
+    const dstNote = document.getElementById('dstNote');
+
+    function syncZoneMode(){
+      const isOffset = zoneModeSel.value === 'offset';
+      ianaBox.style.display = isOffset ? 'none' : '';
+      offsetBox.style.display = isOffset ? '' : 'none';
+      dstSel.disabled = isOffset;
+      dstNote.style.display = isOffset ? '' : 'none';
+    }
+    zoneModeSel.addEventListener('change', syncZoneMode);
+    syncZoneMode();
 
     // Keep screen on toggle
     const keepAwake = document.getElementById('keepAwake');
