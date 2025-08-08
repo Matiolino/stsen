@@ -25,6 +25,8 @@
     .cols{display:grid;grid-template-columns:1fr 1fr;gap:10px}
     .sep{height:1px;background:#1f2633;margin:10px 0}
     .error{color:var(--danger)}
+    .hint{font-size:0.8rem;color:var(--muted)}
+    .disabled-note{opacity:0.7}
   </style>
 </head>
 <body>
@@ -73,11 +75,57 @@
           <div>
             <label for="timeIn">Time</label>
             <input id="timeIn" type="time" step="60" />
+            <div class="hint">Your device/browser controls 12h/24h format.</div>
           </div>
+
+          <div>
+            <label for="zoneMode">Zone input</label>
+            <select id="zoneMode">
+              <option value="iana" selected>Time zone (IANA)</option>
+              <option value="offset">UTC offset</option>
+            </select>
+          </div>
+
           <div>
             <label for="tzIn">Time zone (IANA)</label>
             <input id="tzIn" type="text" placeholder="e.g., Europe/Rome" />
           </div>
+
+          <div>
+            <label for="offsetSel">UTC offset</label>
+            <select id="offsetSel" disabled>
+              <!-- Static options from UTC-12 to UTC+14 -->
+              <option value="-12">UTC−12</option>
+              <option value="-11">UTC−11</option>
+              <option value="-10">UTC−10</option>
+              <option value="-9">UTC−9</option>
+              <option value="-8">UTC−8</option>
+              <option value="-7">UTC−7</option>
+              <option value="-6">UTC−6</option>
+              <option value="-5">UTC−5</option>
+              <option value="-4">UTC−4</option>
+              <option value="-3">UTC−3</option>
+              <option value="-2">UTC−2</option>
+              <option value="-1">UTC−1</option>
+              <option value="0" selected>UTC±0</option>
+              <option value="1">UTC+1</option>
+              <option value="2">UTC+2</option>
+              <option value="3">UTC+3</option>
+              <option value="4">UTC+4</option>
+              <option value="5">UTC+5</option>
+              <option value="6">UTC+6</option>
+              <option value="7">UTC+7</option>
+              <option value="8">UTC+8</option>
+              <option value="9">UTC+9</option>
+              <option value="10">UTC+10</option>
+              <option value="11">UTC+11</option>
+              <option value="12">UTC+12</option>
+              <option value="13">UTC+13</option>
+              <option value="14">UTC+14</option>
+            </select>
+            <div id="offsetNote" class="hint disabled-note">When using UTC offset, DST is not applied.</div>
+          </div>
+
           <div>
             <label for="dstIn">Daylight Saving Time</label>
             <select id="dstIn">
@@ -263,10 +311,8 @@
   // ---------------------------
   // Civil → STS conversions
   // ---------------------------
-  // Converts a wall-clock datetime (user zone) to UTC epoch ms
-  // Rule: if DST is active at that wall-clock instant, subtract 60 minutes from wall time,
-  // then apply the zone's standard offset (no DST) to get UTC.
-  function wallClockToUTCms(y, M, d, h, m, tz, dstMode){ // M:1..12
+  // Converts a wall-clock datetime (IANA zone) to UTC epoch ms
+  function wallClockToUTCms_IANA(y, M, d, h, m, tz, dstMode){ // M:1..12
     const stdOff = standardOffsetForYear(tz, y); // minutes (east +)
     let dstActive = false;
     if (dstMode === 'on') dstActive = true;
@@ -282,6 +328,19 @@
     return { msUTC, wallMinutes, stdOff, dstActive };
   }
 
+  // Converts a wall-clock datetime using a numeric UTC offset (hours)
+  // Offset is "east positive" (UTC+2 => +2).
+  // No DST is applied in this mode.
+  function wallClockToUTCms_Offset(y, M, d, h, m, offsetHours){
+    const offsetMin = Math.trunc(offsetHours*60);
+    const wallMinutes = h*60 + m; // no DST subtraction in offset mode
+    let dateUTC = Date.UTC(y, M-1, d, 0, 0, 0);
+    while (wallMinutes < 0){ dateUTC -= 86400000; }
+    while (wallMinutes >= 1440){ dateUTC += 86400000; }
+    const msUTC = dateUTC + wallMinutes*60000 - offsetMin*60000;
+    return { msUTC, wallMinutes, offsetMin };
+  }
+
   // Map wall-clock minutes (00:00..24:00) to STS minutes using the 3 fixed civil blocks
   function minutesToSTS(wallMinutes, dayLen, nightLen){
     const Kd = 60 / dayLen;
@@ -294,8 +353,10 @@
     } else { // 18–24 (night)
       stsMin = 360*Kn + 720*Kd + (wallMinutes - 1080)*Kn;
     }
-    const hh = Math.floor(stsMin / 60) % 24;
-    const mm = Math.round(stsMin % 60);
+    // Format hh:mm with carry if minutes round to 60
+    let hh = Math.floor(stsMin / 60) % 24;
+    let mm = Math.round(stsMin % 60);
+    if (mm === 60){ mm = 0; hh = (hh + 1) % 24; }
     return { hh, mm, stsMin };
   }
 
@@ -309,7 +370,7 @@
 
     try{
       const y = now.getFullYear(), M = now.getMonth()+1, d = now.getDate(), h = now.getHours(), mi = now.getMinutes();
-      const { msUTC, wallMinutes } = wallClockToUTCms(y, M, d, h, mi, tz, 'auto');
+      const { msUTC, wallMinutes } = wallClockToUTCms_IANA(y, M, d, h, mi, tz, 'auto');
 
       const { moy, year } = minuteOfYearUTC0FromEpoch(msUTC);
       const anc = anchorsForYear(year);
@@ -343,7 +404,9 @@
   function manualCompute(){
     const dateStr = document.getElementById('dateIn').value;
     const timeStr = document.getElementById('timeIn').value;
+    const zoneMode = document.getElementById('zoneMode').value; // 'iana' | 'offset'
     const tz = (document.getElementById('tzIn').value || '').trim();
+    const offsetHours = parseInt(document.getElementById('offsetSel').value, 10);
     const dstMode = document.getElementById('dstIn').value;
     const hemi = document.getElementById('hemiMan').value;
 
@@ -352,40 +415,81 @@
 
     try{
       if (!dateStr || !timeStr) throw new Error('Please enter date and time.');
-      if (!tz) throw new Error('Please enter a valid IANA time zone (e.g., Europe/Rome).');
 
       const [Y,M,D] = dateStr.split('-').map(Number);
       const [h,m]   = timeStr.split(':').map(Number);
 
-      // Validate zone (throws if invalid)
-      void new Intl.DateTimeFormat('en-US', { timeZone: tz }).format();
+      let msUTC, wallMinutes, year, moy;
 
-      const { msUTC, wallMinutes } = wallClockToUTCms(Y, M, D, h, m, tz, dstMode);
-      const { moy, year } = minuteOfYearUTC0FromEpoch(msUTC);
+      if (zoneMode === 'offset'){
+        // Numeric offset mode (no DST)
+        const out = wallClockToUTCms_Offset(Y, M, D, h, m, offsetHours);
+        msUTC = out.msUTC; wallMinutes = out.wallMinutes;
+        ({ moy, year } = minuteOfYearUTC0FromEpoch(msUTC));
+
+      } else {
+        // IANA zone mode
+        if (!tz) throw new Error('Please enter a valid IANA time zone (e.g., Europe/Rome).');
+        // Validate zone (throws if invalid)
+        void new Intl.DateTimeFormat('en-US', { timeZone: tz }).format();
+
+        const out = wallClockToUTCms_IANA(Y, M, D, h, m, tz, dstMode);
+        msUTC = out.msUTC; wallMinutes = out.wallMinutes;
+        ({ moy, year } = minuteOfYearUTC0FromEpoch(msUTC));
+      }
+
       const anc = anchorsForYear(year);
       if (!anc) throw new Error(`Anchors not found for year ${year} in eqsol.json.`);
 
       const { dayLen, nightLen } = hourLengthsForMinute(moy, anc, hemi);
       const { hh, mm } = minutesToSTS(wallMinutes, dayLen, nightLen);
-
       document.getElementById('manSTS').textContent = fmtHM(hh, mm);
 
-      const inst = new Date(msUTC);
-      const offNow = offsetMinutesForZone(inst, tz);
-      const sign = offNow>=0?'+':'';
-      const offTxt = `UTC${sign}${Math.trunc(offNow/60)}:${pad2(Math.abs(offNow%60))}`;
-      // In manual mode, "Local time" is the wall clock provided by the user (not the -60 internal adjustment)
-      const localLabel = `${Y}-${pad2(M)}-${pad2(D)} ${pad2(h)}:${pad2(m)} (${offTxt}, ${tz})`;
-      const utcLabel   = `${fmtIsoUTC0(inst)} (UTC 0)`;
-      document.getElementById('manLine1').textContent = `${localLabel} | ${utcLabel}`;
+      // Labels
+      let localLabel = '';
+      let utcLabel   = `${fmtIsoUTC0(new Date(msUTC))} (UTC 0)`;
 
+      if (zoneMode === 'offset'){
+        const sign = offsetHours>=0?'+':'';
+        const offTxt = `UTC${sign}${Math.trunc(offsetHours)}:00`;
+        localLabel = `${Y}-${pad2(M)}-${pad2(D)} ${pad2(h)}:${pad2(m)} (${offTxt}, numeric offset)`;
+      } else {
+        const inst = new Date(msUTC);
+        const offNow = offsetMinutesForZone(inst, tz);
+        const sign = offNow>=0?'+':'';
+        const offTxt = `UTC${sign}${Math.trunc(offNow/60)}:${pad2(Math.abs(offNow%60))}`;
+        localLabel = `${Y}-${pad2(M)}-${pad2(D)} ${pad2(h)}:${pad2(m)} (${offTxt}, ${tz})`;
+      }
+
+      document.getElementById('manLine1').textContent = `${localLabel} | ${utcLabel}`;
       document.getElementById('manLine2').textContent =
         `Day hour length: ${dayLen.toFixed(2)} min | Night hour length: ${nightLen.toFixed(2)} min | minute-of-year: ${moy}`;
+
     }catch(err){
       errEl.textContent = err.message || String(err);
       document.getElementById('manSTS').textContent = '--:--';
       document.getElementById('manLine1').textContent = 'Local time | UTC 0';
       document.getElementById('manLine2').textContent = 'Day hour length: — min | Night hour length: — min | minute-of-year: —';
+    }
+  }
+
+  function updateZoneModeUI(){
+    const mode = document.getElementById('zoneMode').value;
+    const tzIn = document.getElementById('tzIn');
+    const offSel = document.getElementById('offsetSel');
+    const dstSel = document.getElementById('dstIn');
+    const note = document.getElementById('offsetNote');
+
+    if (mode === 'offset'){
+      tzIn.disabled = true; tzIn.value = '';
+      offSel.disabled = false;
+      dstSel.disabled = true;
+      note.classList.remove('disabled-note');
+    } else {
+      tzIn.disabled = false;
+      offSel.disabled = true;
+      dstSel.disabled = false;
+      note.classList.add('disabled-note');
     }
   }
 
@@ -413,6 +517,14 @@
     document.getElementById('hemiAuto').addEventListener('change', autoUpdate);
     document.getElementById('btnCalc').addEventListener('click', manualCompute);
     document.getElementById('hemiMan').addEventListener('change', manualCompute);
+
+    // Zone mode toggle
+    document.getElementById('zoneMode').addEventListener('change', ()=>{
+      updateZoneModeUI();
+      // Optional: clear errors when switching mode
+      document.getElementById('manErr').textContent = '';
+    });
+    updateZoneModeUI();
 
     // About/Credits loader (fetches ./about-credits.html on click)
     document.getElementById('btnAbout').addEventListener('click', async ()=>{
