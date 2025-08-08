@@ -1,0 +1,35 @@
+STS (Seasonal Time System)
+
+STS is an experimental time system that aligns human time with seasonal rhythms. In STS, daytime and nighttime hours are elastic: their duration changes smoothly over the year. Around the summer solstice (Northern Hemisphere) daytime hours are longer and nighttime hours are shorter; around the winter solstice the opposite happens. At equinoxes, both have the same length.
+
+Goals and scope.
+STS explores how timekeeping can reflect the annual cycle in a clear and consistent way while removing the need for seasonal clock changes. Instead of switching to Daylight Saving Time twice a year—a change often experienced as disruptive—STS keeps the wall clock stable and lets the hour lengths adapt smoothly to the season. In practical terms this mirrors natural rhythms: when daylight is abundant (summer) activity can naturally “expand,” and when darkness dominates (winter) it can gently “ease back.” The aim is alignment with light–dark cycles, not a promise of productivity gains; any wellbeing benefit is potential and implicit rather than medical or prescriptive.
+
+The model is especially suited to temperate latitudes, roughly 30°–50°, where seasonal amplitude is intuitive and where a large share of the world’s population lives. It remains usable outside this band: near the equator the effect is modest by design; at higher latitudes it cannot solve very long nights or days, yet it can still offer a gentler progression across the year and slightly better use of available daylight than a rigid civil clock. Results do not depend on longitude and assume an idealized reference latitude (~30°) for amplitude.
+
+STS is not a sunrise/sunset clock and does not follow local solar altitude. It uses a single global seasonal reference (UTC 0) and a hemisphere toggle; hour lengths change continuously across the year through a smooth (C¹-continuous) curve constrained by equinox and solstice anchors. This framing is descriptive, not prescriptive: STS adapts hour lengths to daylight, leaving people free to organize their routines as they prefer.
+How the STS time is computed (high-level). The app starts from the user’s “UTC local” wall-clock time (either from the device or from manual input). First, it detects whether Daylight Saving Time is active at that exact wall-clock instant using the runtime’s IANA time-zone database; if DST is active, 60 minutes are subtracted from the wall-clock time by design. Then that adjusted instant is converted to UTC 0 using the zone’s standard (non-DST) offset. From this UTC 0 instant the app computes the minute-of-year (0..P−1, with P = 365/366 × 1440).
+
+Anchors and seasonal curve.
+For each year (2025–2050), the app loads four UTC 0 timestamps from a local dataset (eqsol.json): March equinox, June solstice, September equinox, December solstice. These four anchors constrain a smooth seasonal scalar s ∈ [−1, +1] built with a C¹-continuous cubic Hermite interpolation across the four segments. The anchors are not equally spaced in time, so the curve is intentionally not perfectly symmetric. Values at the anchors are: equinoxes s = 0; June solstice s = +1; December solstice s = −1. For the Southern Hemisphere the sign is inverted.
+
+Hour lengths.
+From the seasonal scalar s, STS defines: daytime hour length = 60 + 10·s minutes; nighttime hour length = 60 − 10·s minutes. Therefore at the two extremes, daytime/nighttime are 70/50 minutes (summer solstice, North) or 50/70 minutes (winter solstice, North). Between anchors the change is continuous in both value and slope.
+
+Mapping civil minutes to STS minutes.
+Each civil day is partitioned into three fixed blocks by design: 00:00–06:00 (night), 06:00–18:00 (day), 18:00–24:00 (night). Given the wall-clock minutes since local midnight (after the possible 60′ DST subtraction), the app converts civil minutes into accumulated STS minutes by using nighttime or daytime scaling within the corresponding block. STS time is displayed to the nearest minute. The app evaluates values minute by minute (no per-day constant approximation).
+
+UI and usage.
+The Automatic clock shows: (1) large STS time; (2) a small line with “Local time | UTC 0” plus zone and offset; (3) a small line with current daytime/nighttime hour lengths and the minute-of-year. The Hemisphere toggle (North/South) updates output immediately. The Manual panel lets the user enter Date, Time, an IANA time zone, DST mode (Auto/On/Off), and Hemisphere; pressing “Compute STS” shows an independent readout that does not interfere with the live clock.
+
+Data and privacy.
+The seasonal anchors are read from eqsol.json (UTC 0 timestamps for 2025–2050) located next to the page. DST detection relies on the browser/runtime IANA tzdata; no external DST services are queried. Apart from fetching the local eqsol.json file, all computations occur client-side.
+
+Assumptions and limits.
+Latitude is idealized (~30°) and longitude is ignored by design; STS is not a solar ephemeris. Equinox/solstice timestamps come from published “Seasons” tables (UT1 ≈ UTC at minute precision). Differences of up to ±1 minute can occur due to rounding and sub-minute UT1–UTC differences. If the requested year is outside 2025–2050 and no anchors are available, the app reports this explicitly.
+
+Status and intent.
+The behavior is fixed by the description above. Any change will be explicit and documented. This page is intentionally minimal (vanilla HTML/JS/CSS) to remain portable and dependency-free.
+
+Credits.
+Concept and specification: Matteo Biagioli. Implementation: STS Web App (vanilla JS). © 2025 Matteo Biagioli. All rights reserved.
