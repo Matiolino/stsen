@@ -35,13 +35,16 @@
     .tiny{font-size:0.85rem;color:var(--muted)}
     .sep{height:1px;background:#1f2633;margin:10px 0}
 
+    .card-title{font-weight:700; font-size:clamp(1.05rem,2.2vw,1.35rem)}
+    .section-title{font-weight:700; font-size:clamp(1.05rem,2.2vw,1.35rem)}
+
     label{display:block;font-size:0.9rem;margin:10px 0 4px}
     input,select,button{background:#0f1420;color:var(--fg);border:1px solid #243048;border-radius:10px;padding:10px 12px;font:inherit}
     button{cursor:pointer}
 
     /* Clocks */
     #liveSTS{font-size:clamp(2.6rem, 12vw, 5rem); line-height:1; letter-spacing:0.5px}
-    #manSTS,#revLocal,#qC2SOut,#qS2COut{font-size:clamp(1.8rem, 7vw, 2.4rem); line-height:1.1}
+    #manSTS,#revLocal,#qOut{font-size:clamp(1.8rem, 7vw, 2.4rem); line-height:1.1}
 
     .cols2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
     .cols3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
@@ -79,7 +82,7 @@
       <!-- CURRENT STS TIME -->
       <div class="card" style="flex:0 1 460px;">
         <div class="row" style="justify-content:space-between;">
-          <strong>Current STS time</strong>
+          <div class="card-title">Current STS time</div>
           <div class="row">
             <span class="muted">Hemisphere</span>
             <select id="hemiAuto">
@@ -102,11 +105,16 @@
       </div>
     </div>
 
-    <!-- QUICK CONVERT (device zone, DST Auto) -->
+    <!-- QUICK CONVERTER (unified) -->
     <div class="card" style="margin-top:16px">
       <div class="row" style="justify-content:space-between;">
-        <strong>Quick convert (device zone, DST auto)</strong>
+        <div class="card-title">Quick converter</div>
         <div class="row">
+          <span class="muted">Mode</span>
+          <select id="qMode">
+            <option value="c2s" selected>Civil → STS</option>
+            <option value="s2c">STS → Civil</option>
+          </select>
           <span class="muted">Hemisphere</span>
           <select id="hemiQuick">
             <option value="north" selected>North</option>
@@ -116,36 +124,22 @@
       </div>
 
       <div class="cols2">
-        <!-- Quick Civil -> STS -->
         <div>
-          <div class="row" style="justify-content:space-between"><strong>Civil → STS</strong></div>
-          <label for="qDate">Date</label>
-          <input id="qDate" type="date">
-          <label for="qTime">Time</label>
-          <input id="qTime" type="time" step="60">
-          <div class="row" style="justify-content:space-between; margin-top:10px">
-            <button id="qBtnC2S">Convert</button>
-            <span id="qC2SInfo" class="tiny muted"></span>
-          </div>
-          <div id="qC2SOut" style="margin-top:8px">STS: —</div>
-          <div id="qC2SDet" class="tiny">UTC 0: — | Day/Night: — / — | minute-of-year: — | DST: —</div>
-          <div id="qC2SErr" class="tiny error"></div>
-        </div>
+          <label for="qDateU">Date</label>
+          <input id="qDateU" type="date">
 
-        <!-- Quick STS -> Civil -->
-        <div>
-          <div class="row" style="justify-content:space-between"><strong>STS → Civil</strong></div>
-          <label for="qDateR">Date</label>
-          <input id="qDateR" type="date">
-          <label for="qTimeSTS">STS time</label>
-          <input id="qTimeSTS" type="time" step="60" placeholder="hh:mm">
+          <label for="qTimeU" id="qTimeLabel">Time</label>
+          <input id="qTimeU" type="time" step="60" placeholder="hh:mm">
+
           <div class="row" style="justify-content:space-between; margin-top:10px">
-            <button id="qBtnS2C">Convert</button>
-            <span id="qS2CInfo" class="tiny muted">Output can be next day when DST is active.</span>
+            <button id="qBtnRun">Convert</button>
+            <span id="qInfo" class="tiny muted"></span>
           </div>
-          <div id="qS2COut" style="margin-top:8px">Local: —</div>
-          <div id="qS2CDet" class="tiny">UTC 0: — | Day/Night: — / — | minute-of-year: — | DST: —</div>
-          <div id="qS2CErr" class="tiny error"></div>
+
+          <div id="qOut" style="margin-top:8px">—</div>
+          <div id="qDet" class="tiny">UTC 0: — | Day/Night: — / — | minute-of-year: — | DST: —</div>
+          <div id="qGuidance" class="tiny muted" style="margin-top:6px"></div>
+          <div id="qErr" class="tiny error"></div>
         </div>
       </div>
     </div>
@@ -153,15 +147,15 @@
     <div class="grid" style="margin-top:16px">
       <!-- MANUAL (Advanced) -->
       <div class="card">
-        <div class="row" style="justify-content:space-between;">
-          <strong>Manual (Advanced)</strong>
+        <div class="row" style="justify-content:space-between; align-items:baseline;">
+          <div class="card-title">Manual (Advanced)</div>
           <span class="tiny muted">Manual panel does not affect the live clock.</span>
         </div>
 
         <!-- Civil -> STS (Advanced) -->
         <div class="sep"></div>
-        <div class="row" style="justify-content:space-between;">
-          <strong>Civil → STS</strong>
+        <div class="row" style="justify-content:space-between; align-items:center;">
+          <div class="section-title">Civil → STS</div>
           <div class="row">
             <span class="muted">Hemisphere</span>
             <select id="hemiManA">
@@ -222,8 +216,8 @@
 
         <!-- STS -> Civil (Advanced) -->
         <div class="sep" style="margin-top:14px"></div>
-        <div class="row" style="justify-content:space-between;">
-          <strong>STS → Civil</strong>
+        <div class="row" style="justify-content:space-between; align-items:center;">
+          <div class="section-title">STS → Civil</div>
           <div class="row">
             <span class="muted">Hemisphere</span>
             <select id="hemiManB">
@@ -522,13 +516,32 @@
     }
   }
 
-  // ---------- Quick convert (device zone) ----------
-  function quickC2S(){
-    const dateStr = document.getElementById('qDate').value;
-    const timeStr = document.getElementById('qTime').value;
+  // ---------- Quick converter (unified) ----------
+  function quickSetModeUI(){
+    const mode = document.getElementById('qMode').value;
+    const tz = resolvedLocalZone();
+    const dateStr = document.getElementById('qDateU').value || '';
+    const timeStr = document.getElementById('qTimeU').value || '';
+    document.getElementById('qOut').textContent = '—';
+    document.getElementById('qDet').textContent = 'UTC 0: — | Day/Night: — / — | minute-of-year: — | DST: —';
+    document.getElementById('qErr').textContent = '';
+    document.getElementById('qInfo').textContent = (dateStr&&timeStr)? `${fmtIsoLocal(new Date(dateStr+'T'+timeStr))} (${tz})` : '';
+    document.getElementById('qGuidance').textContent = (mode==='s2c') ? 'Output can be next day when DST is active.' : '';
+    document.getElementById('qTimeLabel').textContent = (mode==='s2c') ? 'STS time' : 'Time';
+    document.getElementById('qTimeU').placeholder = (mode==='s2c') ? 'hh:mm (STS)' : 'hh:mm';
+  }
+
+  function quickRun(){
+    const mode = document.getElementById('qMode').value;
+    if (mode === 's2c') return quickS2C_unified();
+    return quickC2S_unified();
+  }
+
+  function quickC2S_unified(){
+    const dateStr = document.getElementById('qDateU').value;
+    const timeStr = document.getElementById('qTimeU').value;
     const hemi = document.getElementById('hemiQuick').value;
-    const err = document.getElementById('qC2SErr');
-    err.textContent = '';
+    const err = document.getElementById('qErr'); err.textContent = '';
 
     try{
       if (!dateStr || !timeStr) throw new Error('Enter date and time.');
@@ -541,13 +554,13 @@
       const anc = anchorsForYear(year);
       const { dayLen, nightLen } = hourLengthsForMinute(moy, anc, hemi);
       const { hh, mm, stsMin } = minutesToSTS(wallMinutes_std, dayLen, nightLen);
-
       const dstNow = isDSTActiveAtUTCInstant(tz, msUTC);
 
-      document.getElementById('qC2SOut').textContent = `STS: ${fmtHM(hh,mm)}`;
-      document.getElementById('qC2SDet').textContent =
+      document.getElementById('qOut').textContent = `STS: ${fmtHM(hh,mm)}`;
+      document.getElementById('qDet').textContent =
         `UTC 0: ${fmtIsoUTC0(new Date(msUTC))} | Day/Night: ${dayLen.toFixed(2)} / ${nightLen.toFixed(2)} | minute-of-year: ${moy} | DST: ${dstNow?'On':'Off'}`;
-      document.getElementById('qC2SInfo').textContent = `${fmtIsoLocal(new Date(Y, M-1, D, h, m))} (${tz})`;
+      document.getElementById('qInfo').textContent = `${fmtIsoLocal(new Date(Y, M-1, D, h, m))} (${tz})`;
+
       dbgSet({context:'Quick C→S', tz, wallMinutes_std, msUTC:new Date(msUTC).toISOString(), moy, dayLen, nightLen, stsMin, hemi, dstNow});
     }catch(e){ err.textContent = e.message || String(e); }
   }
@@ -571,11 +584,11 @@
     return { wm, msUTC, moy, year, dayLen, nightLen, stdOff };
   }
 
-  function quickS2C(){
-    const dateStr = document.getElementById('qDateR').value;
-    const timeSTS = document.getElementById('qTimeSTS').value;
+  function quickS2C_unified(){
+    const dateStr = document.getElementById('qDateU').value;
+    const timeSTS = document.getElementById('qTimeU').value;
     const hemi = document.getElementById('hemiQuick').value;
-    const err = document.getElementById('qS2CErr'); err.textContent = '';
+    const err = document.getElementById('qErr'); err.textContent = '';
     try{
       if (!dateStr || !timeSTS) throw new Error('Enter date and STS time.');
       const [Y,M,D] = dateStr.split('-').map(Number);
@@ -594,11 +607,11 @@
 
       const hh = Math.floor(localMin/60), mm = Math.round(localMin%60) % 60;
       const badge = dayShift!==0 ? ` <span class="badge">${dayShift>0?'next day':'prev day'}${dstActive?' · DST':''}</span>` : '';
-      document.getElementById('qS2COut').innerHTML = `Local: ${fmtHM(hh,mm)}${badge}`;
+      document.getElementById('qOut').innerHTML = `Local: ${fmtHM(hh,mm)}${badge}`;
 
-      document.getElementById('qS2CDet').textContent =
+      document.getElementById('qDet').textContent =
         `UTC 0: ${fmtIsoUTC0(new Date(msUTC))} | Day/Night: ${dayLen.toFixed(2)} / ${nightLen.toFixed(2)} | minute-of-year: ${moy} | DST: ${dstActive?'On':'Off'}`;
-      document.getElementById('qS2CInfo').textContent = `${Y}-${pad2(M)}-${pad2(D)} STS ${fmtHM(hs,ms)} (${tz})`;
+      document.getElementById('qInfo').textContent = `${Y}-${pad2(M)}-${pad2(D)} STS ${fmtHM(hs,ms)} (${tz})`;
 
       dbgSet({context:'Quick S→C', tz, dstActive, wm, localMin, msUTC:new Date(msUTC).toISOString(), moy, dayLen, nightLen, hemi, stsMin, dayShift});
     }catch(e){ err.textContent = e.message || String(e); }
@@ -758,8 +771,9 @@
     kick();
 
     // Quick listeners
-    document.getElementById('qBtnC2S').addEventListener('click', quickC2S);
-    document.getElementById('qBtnS2C').addEventListener('click', quickS2C);
+    document.getElementById('qMode').addEventListener('change', quickSetModeUI);
+    document.getElementById('qBtnRun').addEventListener('click', quickRun);
+    quickSetModeUI();
 
     // Manual listeners & visibility
     const modeA = document.getElementById('zoneModeA');
