@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>STS — Seasonal Time System</title>
 
-  <!-- PWA meta -->
+  <!-- PWA -->
   <link rel="manifest" href="./manifest.webmanifest">
   <meta name="theme-color" content="#0b0e12">
 
@@ -21,40 +21,44 @@
     .sub{color:var(--muted);margin:0 0 18px;text-align:center}
 
     .grid{display:grid;gap:16px;grid-template-columns:1fr}
-    @media (min-width:900px){ .grid{grid-template-columns:1fr 1fr} }
+    @media (min-width:980px){ .grid{grid-template-columns:1fr 1fr} }
 
     .card{background:var(--card);border:1px solid #1f2633;border-radius:14px;padding:16px}
     .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
     .muted{color:var(--muted)}
-
-    /* Big live clock (responsive) */
-    #liveSTS{font-size:clamp(2.6rem, 12vw, 5rem); line-height:1; letter-spacing:0.5px}
-    /* Manual clock: quieter */
-    #manSTS{font-size:clamp(1.8rem, 7vw, 2.4rem); line-height:1.1}
-
     .small{font-size:0.92rem;color:var(--muted)}
     .tiny{font-size:0.85rem;color:var(--muted)}
-    #liveLine1,#liveLine2,#manLine1,#manLine2{overflow-wrap:anywhere}
+    .sep{height:1px;background:#1f2633;margin:10px 0}
 
     label{display:block;font-size:0.9rem;margin:10px 0 4px}
     input,select,button{background:#0f1420;color:var(--fg);border:1px solid #243048;border-radius:10px;padding:10px 12px;font:inherit}
     button{cursor:pointer}
-    .cols{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-    .sep{height:1px;background:#1f2633;margin:10px 0}
-    .error{color:var(--danger)}
+
+    /* Clocks */
+    #liveSTS{font-size:clamp(2.6rem, 12vw, 5rem); line-height:1; letter-spacing:0.5px}
+    #manSTS,#revLocal{font-size:clamp(1.8rem, 7vw, 2.4rem); line-height:1.1}
+
+    /* Two-column controls */
+    .cols2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+    .cols3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
 
     /* Mobile polish */
-    @media (max-width:480px){
+    @media (max-width:520px){
       .wrap{padding:14px}
       h1{font-size:1.3rem}
       .sub{font-size:0.95rem}
       .card{padding:12px}
       .grid{gap:12px}
       .row{gap:8px}
-      .cols{grid-template-columns:1fr}
+      .cols2,.cols3{grid-template-columns:1fr}
       input,select,button{width:100%;min-height:44px;font-size:16px}
       #btnAbout{width:100%}
     }
+
+    .error{color:var(--danger)}
+    .badge{display:inline-block; padding:2px 8px; border-radius:999px; background:#203049; color:#cfe8ff; font-size:0.75rem; margin-left:6px}
+    details summary{cursor:pointer; color:var(--muted)}
+    code.inline{background:#0f1420; padding:0 4px; border-radius:4px}
   </style>
 </head>
 <body>
@@ -62,8 +66,56 @@
     <h1>STS — Seasonal Time System</h1>
     <p class="sub">Aligning time with natural rhythms.</p>
 
-    <div class="grid">
-      <!-- AUTOMATIC -->
+    <!-- QUICK CONVERT (device zone, DST Auto) -->
+    <div class="card">
+      <div class="row" style="justify-content:space-between;">
+        <strong>Quick convert (device zone, DST auto)</strong>
+        <div class="row">
+          <span class="muted">Hemisphere</span>
+          <select id="hemiQuick">
+            <option value="north" selected>North</option>
+            <option value="south">South</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="cols2">
+        <!-- Quick Civil -> STS -->
+        <div>
+          <div class="row" style="justify-content:space-between"><strong>Civil → STS</strong></div>
+          <label for="qDate">Date</label>
+          <input id="qDate" type="date">
+          <label for="qTime">Time</label>
+          <input id="qTime" type="time" step="60">
+          <div class="row" style="justify-content:space-between; margin-top:10px">
+            <button id="qBtnC2S">Convert</button>
+            <span id="qC2SInfo" class="tiny muted"></span>
+          </div>
+          <div id="qC2SOut" class="small" style="margin-top:8px">STS: —</div>
+          <div id="qC2SDet" class="tiny">UTC 0: — | Day/Night: — / — | minute-of-year: —</div>
+          <div id="qC2SErr" class="tiny error"></div>
+        </div>
+
+        <!-- Quick STS -> Civil -->
+        <div>
+          <div class="row" style="justify-content:space-between"><strong>STS → Civil</strong></div>
+          <label for="qDateR">Date</label>
+          <input id="qDateR" type="date">
+          <label for="qTimeSTS">STS time</label>
+          <input id="qTimeSTS" type="time" step="60" placeholder="hh:mm">
+          <div class="row" style="justify-content:space-between; margin-top:10px">
+            <button id="qBtnS2C">Convert</button>
+            <span id="qS2CInfo" class="tiny muted"></span>
+          </div>
+          <div id="qS2COut" class="small" style="margin-top:8px">Local: —</div>
+          <div id="qS2CDet" class="tiny">UTC 0: — | Day/Night: — / — | minute-of-year: —</div>
+          <div id="qS2CErr" class="tiny error"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="grid" style="margin-top:16px">
+      <!-- AUTOMATIC LIVE -->
       <div class="card">
         <div class="row" style="justify-content:space-between;">
           <strong>Automatic</strong>
@@ -76,7 +128,7 @@
           </div>
         </div>
 
-        <div id="liveSTS" class="output">--:--</div>
+        <div id="liveSTS">--:--</div>
         <div class="row" style="justify-content:space-between; gap:12px; margin-top:8px;">
           <div class="small" id="liveLine1">Local time | UTC 0</div>
           <label class="tiny" style="display:flex;align-items:center;gap:6px">
@@ -87,10 +139,10 @@
         <div id="autoErr" class="tiny error"></div>
       </div>
 
-      <!-- MANUAL -->
+      <!-- MANUAL (Advanced) -->
       <div class="card">
         <div class="row" style="justify-content:space-between;">
-          <strong>Manual</strong>
+          <strong>Manual (Advanced)</strong>
           <div class="row">
             <span class="muted">Hemisphere</span>
             <select id="hemiMan">
@@ -100,7 +152,20 @@
           </div>
         </div>
 
-        <div class="cols">
+        <!-- Civil -> STS (Advanced) -->
+        <div class="sep"></div>
+        <div class="row" style="justify-content:space-between;">
+          <strong>Civil → STS</strong>
+          <div class="row">
+            <span class="muted">Zone input</span>
+            <select id="zoneModeA">
+              <option value="iana" selected>IANA</option>
+              <option value="offset">UTC offset</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="cols3">
           <div>
             <label for="dateIn">Date</label>
             <input id="dateIn" type="date" />
@@ -110,54 +175,104 @@
             <input id="timeIn" type="time" step="60" />
           </div>
 
-          <!-- Zone input mode -->
-          <div>
-            <label for="zoneMode">Zone input</label>
-            <select id="zoneMode">
-              <option value="iana" selected>IANA time zone</option>
-              <option value="offset">UTC offset</option>
-            </select>
-          </div>
-
-          <!-- IANA input -->
-          <div id="ianaBox">
+          <!-- IANA -->
+          <div id="ianaBoxA">
             <label for="tzIn">Time zone (IANA)</label>
             <input id="tzIn" type="text" placeholder="e.g., Europe/Rome" />
-          </div>
-
-          <!-- Offset input -->
-          <div id="offsetBox" style="display:none">
-            <label for="offsetIn">UTC offset (no DST)</label>
-            <input id="offsetIn" type="text" placeholder="e.g., UTC+5, +5:30, -3, UTC-0330" />
-          </div>
-
-          <!-- DST -->
-          <div>
             <label for="dstIn">Daylight Saving Time</label>
             <select id="dstIn">
               <option value="auto" selected>Auto</option>
               <option value="on">On</option>
               <option value="off">Off</option>
             </select>
-            <div id="dstNote" class="tiny muted" style="display:none">Ignored in UTC offset mode</div>
+          </div>
+
+          <!-- Offset -->
+          <div id="offsetBoxA" style="display:none">
+            <label for="offsetIn">UTC offset</label>
+            <input id="offsetIn" type="text" placeholder="e.g., UTC+2, +5:30, -3" />
+            <label class="tiny" style="display:flex;align-items:center;gap:6px;margin-top:8px">
+              <input id="offsetDSTMapA" type="checkbox" style="width:auto;height:auto">
+              DST (apply −60′ to mapping)
+            </label>
           </div>
         </div>
 
-        <div class="sep"></div>
+        <div class="row" style="justify-content:space-between;margin-top:10px">
+          <button id="btnCalcA">Compute STS</button>
+          <span class="tiny muted">Manual panel does not affect the live clock.</span>
+        </div>
+        <div id="manSTS" style="margin-top:8px; font-size:1.3rem">STS: --:--</div>
+        <div id="manLine1" class="small">Local | UTC 0</div>
+        <div id="manLine2" class="tiny">Day/Night: — / — | minute-of-year: —</div>
+        <div id="manErr" class="tiny error"></div>
+
+        <!-- STS -> Civil (Advanced) -->
+        <div class="sep" style="margin-top:14px"></div>
         <div class="row" style="justify-content:space-between;">
-          <button id="btnCalc">Compute STS</button>
-          <div class="tiny muted">The manual panel does not interfere with the live clock.</div>
+          <strong>STS → Civil</strong>
+          <div class="row">
+            <span class="muted">Zone input</span>
+            <select id="zoneModeB">
+              <option value="iana" selected>IANA</option>
+              <option value="offset">UTC offset</option>
+            </select>
+          </div>
         </div>
 
-        <div id="manSTS" class="output">--:--</div>
-        <div id="manLine1" class="small">Local time | UTC 0</div>
-        <div id="manLine2" class="tiny">Day hour length: — min | Night hour length: — min | minute-of-year: —</div>
-        <div id="manErr" class="tiny error"></div>
+        <div class="cols3">
+          <div>
+            <label for="dateRev">Date</label>
+            <input id="dateRev" type="date" />
+          </div>
+          <div>
+            <label for="timeRevSTS">STS time</label>
+            <input id="timeRevSTS" type="time" step="60" />
+          </div>
+
+          <!-- IANA -->
+          <div id="ianaBoxB">
+            <label for="tzRev">Time zone (IANA)</label>
+            <input id="tzRev" type="text" placeholder="e.g., Europe/Rome" />
+            <label for="dstRev">Daylight Saving Time</label>
+            <select id="dstRev">
+              <option value="auto" selected>Auto</option>
+              <option value="on">On</option>
+              <option value="off">Off</option>
+            </select>
+          </div>
+
+          <!-- Offset -->
+          <div id="offsetBoxB" style="display:none">
+            <label for="offsetRev">UTC offset</label>
+            <input id="offsetRev" type="text" placeholder="e.g., UTC+2, +5:30, -3" />
+            <label class="tiny" style="display:flex;align-items:center;gap:6px;margin-top:8px">
+              <input id="offsetDSTMapB" type="checkbox" style="width:auto;height:auto">
+              DST (apply −60′ to mapping)
+            </label>
+          </div>
+        </div>
+
+        <div class="row" style="justify-content:space-between;margin-top:10px">
+          <button id="btnCalcB">Convert to Local</button>
+          <span class="tiny muted">Output may be next day if DST adds +60′.</span>
+        </div>
+        <div id="revLocal" style="margin-top:8px; font-size:1.2rem">Local: --:--</div>
+        <div id="revLine1" class="small">Local date/time | UTC 0</div>
+        <div id="revLine2" class="tiny">Day/Night: — / — | minute-of-year: —</div>
+        <div id="revErr" class="tiny error"></div>
+
+        <!-- Debug -->
+        <div class="sep" style="margin-top:14px"></div>
+        <details id="dbgBox">
+          <summary>Debug (last calc)</summary>
+          <pre id="dbgOut" class="tiny" style="white-space:pre-wrap; margin-top:8px; color:#9fb4c9">—</pre>
+        </details>
       </div>
     </div>
   </div>
 
-  <!-- About/Credits trigger + container -->
+  <!-- About/Credits -->
   <div class="wrap">
     <div class="row" style="justify-content:center; margin: 8px 0 0;">
       <button id="btnAbout">About/Credits</button>
@@ -171,17 +286,14 @@
   </div>
 
   <script>
-  // ---------------------------
-  // Formatting helpers
-  // ---------------------------
+  // ---------- Formatting ----------
   const pad2 = n => n.toString().padStart(2,'0');
   const fmtHM = (h,m) => `${pad2(h)}:${pad2(m)}`;
   const fmtIsoUTC0 = d => `${d.getUTCFullYear()}-${pad2(d.getUTCMonth()+1)}-${pad2(d.getUTCDate())} ${pad2(d.getUTCHours())}:${pad2(d.getUTCMinutes())}`;
   const fmtIsoLocal = d => `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())} ${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+  const clamp = (v,a,b)=> Math.max(a, Math.min(b, v));
 
-  // ---------------------------
-  // Load eqsol.json (UTC0 anchors 2025–2050)
-  // ---------------------------
+  // ---------- Load eqsol.json ----------
   let EQSOL_DB = null;
   async function loadEqSolDB(){
     const res = await fetch('./eqsol.json', {cache:'no-cache'});
@@ -189,20 +301,17 @@
     EQSOL_DB = await res.json();
   }
 
-  // ---------------------------
-  // Time zone & DST via IANA tzdata
-  // ---------------------------
+  // ---------- TZ & DST via IANA ----------
   function resolvedLocalZone(){
     try{ return Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'; }
     catch{ return 'UTC'; }
   }
-
   function offsetMinutesForZone(dateUTC, tz){
     let val = '';
-    const optsLong = { timeZone: tz, timeZoneName: 'longOffset', hour12:false, year:'numeric', month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit', second:'2-digit' };
-    const optsShort= { timeZone: tz, timeZoneName: 'shortOffset', hour12:false, year:'numeric', month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit', second:'2-digit' };
-    try{ val = new Intl.DateTimeFormat('en-US', optsLong).formatToParts(dateUTC).find(p=>p.type==='timeZoneName')?.value || '';}catch{}
-    if(!val){ try{ val = new Intl.DateTimeFormat('en-US', optsShort).formatToParts(dateUTC).find(p=>p.type==='timeZoneName')?.value || '';}catch{} }
+    const base = { timeZone: tz, timeZoneName: 'longOffset', hour12:false, year:'numeric', month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit', second:'2-digit' };
+    const short= { ...base, timeZoneName:'shortOffset' };
+    try{ val = new Intl.DateTimeFormat('en-US', base).formatToParts(dateUTC).find(p=>p.type==='timeZoneName')?.value || '';}catch{}
+    if(!val){ try{ val = new Intl.DateTimeFormat('en-US', short).formatToParts(dateUTC).find(p=>p.type==='timeZoneName')?.value || '';}catch{} }
     const m = val.match(/([+-])(\d{1,2})(?::?(\d{2}))?/);
     if(!m) return 0;
     const sign = m[1]==='-' ? -1 : 1;
@@ -210,9 +319,7 @@
     const mm = m[3] ? parseInt(m[3],10) : 0;
     return sign*(hh*60 + mm);
   }
-
   function isLeapYear(y){ return (y%4===0 && y%100!==0) || (y%400===0); }
-
   function standardOffsetForYear(tz, year){
     const jan = new Date(Date.UTC(year,0,1,12,0,0));
     const jul = new Date(Date.UTC(year,6,1,12,0,0));
@@ -220,24 +327,25 @@
     const offJul = offsetMinutesForZone(jul, tz);
     return Math.min(offJan, offJul);
   }
-
-  function isDSTActive(tz, y, M, d, h, m){
-    const instantUTC = new Date(Date.UTC(y, M-1, d, h, m, 0));
-    const offNow = offsetMinutesForZone(instantUTC, tz);
-    const std = standardOffsetForYear(tz, y);
+  function isDSTActiveAtUTCInstant(tz, msUTC){
+    const d = new Date(msUTC);
+    const year = d.getUTCFullYear();
+    const offNow = offsetMinutesForZone(d, tz);
+    const std = standardOffsetForYear(tz, year);
     return offNow > std;
   }
+  function isDSTActiveYMDHM(tz, y, M, d, h, m){
+    const instantUTC = Date.UTC(y, M-1, d, h, m, 0);
+    return isDSTActiveAtUTCInstant(tz, instantUTC);
+  }
 
-  // ---------------------------
-  // UTC offset parsing (for Manual offset mode)
-  // ---------------------------
+  // ---------- UTC offset parsing ----------
   function parseUTCOffsetToMinutes(str){
     if (!str) throw new Error('Please enter a UTC offset.');
-    let s = str.trim().toUpperCase();
-    s = s.replace(/^GMT|^UTC/,'').trim();
-    if (s === 'Z') return 0;
+    let s = str.trim().toUpperCase().replace(/^GMT|^UTC/,'').trim();
+    if (s === 'Z' || s === '') return 0;
     const m = s.match(/^([+-])?(\d{1,2})(?::?(\d{2}))?$/);
-    if (!m) throw new Error('Invalid UTC offset. Examples: UTC+5, +5:30, -3, UTC-0330');
+    if (!m) throw new Error('Invalid UTC offset. Examples: UTC+2, +5:30, -3');
     const sign = (m[1] === '-') ? -1 : 1;
     const hh = parseInt(m[2],10);
     const mm = m[3] ? parseInt(m[3],10) : 0;
@@ -245,15 +353,12 @@
     return sign*(hh*60 + mm);
   }
 
-  // ---------------------------
-  // Anchors & minute-of-year (UTC0)
-  // ---------------------------
+  // ---------- Anchors & minute-of-year (UTC0) ----------
   function toMinuteOfYearUTC0(isoUTC){
     const d = new Date(isoUTC);
     const start = Date.UTC(d.getUTCFullYear(),0,1,0,0,0);
     return Math.floor((d.getTime() - start)/60000);
   }
-
   function anchorsForYear(year){
     if(!EQSOL_DB || !EQSOL_DB.data || !EQSOL_DB.data[year]) return null;
     const row = EQSOL_DB.data[year];
@@ -263,7 +368,6 @@
     const d = toMinuteOfYearUTC0(row.sol2);
     return {a,b,c,d, minutesInYear: (isLeapYear(year)?366:365)*1440};
   }
-
   function minuteOfYearUTC0FromEpoch(msUTC){
     const d = new Date(msUTC);
     const start = Date.UTC(d.getUTCFullYear(),0,1,0,0,0);
@@ -274,9 +378,7 @@
     return {moy:k, year:d.getUTCFullYear(), minutesInYear:P};
   }
 
-  // ---------------------------
-  // Seasonal curve (C¹ continuous) via Hermite interpolation
-  // ---------------------------
+  // ---------- Seasonal curve (C¹) ----------
   function hermite(y0, y1, m0, m1, t, L){
     const t2 = t*t, t3 = t2*t;
     const h00 =  2*t3 - 3*t2 + 1;
@@ -285,34 +387,20 @@
     const h11 =    t3 -   t2;
     return h00*y0 + h10*m0*L + h01*y1 + h11*m1*L;
   }
-
   function seasonalScalarC1(m, anchors){
     const {a,b,c,d,minutesInYear:P} = anchors;
     const mA =  2 / ( (b - (d - P)) );
     const mB =  0;
     const mC = (-1 - 0) / (d - a);
     const mD =  0;
-
-    if (m >= a && m < b){
-      const L = (b - a), t = (m - a)/L;
-      return hermite(0, +1, mA, mB, t, L);
-    }
-    if (m >= b && m < c){
-      const L = (c - b), t = (m - b)/L;
-      return hermite(+1, 0, mB, mC, t, L);
-    }
-    if (m >= c && m < d){
-      const L = (d - c), t = (m - c)/L;
-      return hermite(0, -1, mC, mD, t, L);
-    }
-    const aP = a + P;
-    const L = (aP - d), t = (m >= d ? (m - d)/L : (m + P - d)/L);
-    return hermite(-1, 0, mD, mA, t, L);
+    if (m >= a && m < b){ const L=(b-a), t=(m-a)/L; return hermite(0,+1,mA,mB,t,L); }
+    if (m >= b && m < c){ const L=(c-b), t=(m-b)/L; return hermite(+1,0,mB,mC,t,L); }
+    if (m >= c && m < d){ const L=(d-c), t=(m-c)/L; return hermite(0,-1,mC,mD,t,L); }
+    const aP = a + P; const L=(aP - d), t=(m >= d ? (m-d)/L : (m+P-d)/L);
+    return hermite(-1,0,mD,mA,t,L);
   }
 
-  // ---------------------------
-  // Day/Night hour lengths by hemisphere
-  // ---------------------------
+  // ---------- Day/Night lengths ----------
   const AMP = 10; // ±10 minutes
   function hourLengthsForMinute(m, anchors, hemisphere){
     let s = seasonalScalarC1(m, anchors);
@@ -320,16 +408,13 @@
     return { dayLen: 60 + AMP*s, nightLen: 60 - AMP*s, s };
   }
 
-  // ---------------------------
-  // Civil → STS conversion (with STS boundaries)
-  // ---------------------------
+  // ---------- Civil → STS (mapping) ----------
   function minutesToSTS(wallMinutes, dayLen, nightLen){
     const Kd = 60 / dayLen;
     const Kn = 60 / nightLen;
-
-    const M1 = 6 * nightLen;      // 00:00 → STS 06:00 (night)
-    const M2 = 12 * dayLen;       // STS 06:00 → STS 18:00 (day)
-    const M12 = M1 + M2;          // STS 18:00 boundary
+    const M1 = 6 * nightLen;
+    const M2 = 12 * dayLen;
+    const M12 = M1 + M2;
 
     let stsMin;
     if (wallMinutes < M1){
@@ -339,22 +424,30 @@
     } else {
       stsMin = 1080 + (wallMinutes - M12) * Kn;
     }
-
     let hh = Math.floor(stsMin / 60) % 24;
     let mm = Math.round(stsMin % 60);
     if (mm === 60){ mm = 0; hh = (hh + 1) % 24; }
     return { hh, mm, stsMin };
   }
 
-  // ---------------------------
-  // Wall-clock → UTC0 helpers
-  // ---------------------------
-  function wallClockToUTCms(y, M, d, h, m, tz, dstMode){
+  // ---------- STS → Civil (inverse mapping) ----------
+  function stsToWallMinutes(stsMin, dayLen, nightLen){
+    if (stsMin < 360){
+      return stsMin * (nightLen/60);
+    } else if (stsMin < 1080){
+      return 6*nightLen + (stsMin - 360) * (dayLen/60);
+    } else {
+      return 6*nightLen + 12*dayLen + (stsMin - 1080) * (nightLen/60);
+    }
+  }
+
+  // ---------- Wall-clock → UTC ms ----------
+  function wallClockToUTCms_IANA(y,M,d,h,m,tz,dstMode){
     const stdOff = standardOffsetForYear(tz, y);
     let dstActive = false;
     if (dstMode === 'on') dstActive = true;
     else if (dstMode === 'off') dstActive = false;
-    else dstActive = isDSTActive(tz, y, M, d, h, m);
+    else dstActive = isDSTActiveYMDHM(tz, y, M, d, h, m);
 
     let wallMinutes = h*60 + m - (dstActive ? 60 : 0);
     let dateUTC = Date.UTC(y, M-1, d, 0, 0, 0);
@@ -362,21 +455,18 @@
     while (wallMinutes >= 1440){ wallMinutes -= 1440; dateUTC += 86400000; }
 
     const msUTC = dateUTC + wallMinutes*60000 - stdOff*60000;
-    return { msUTC, wallMinutes, stdOff, dstActive };
+    return { msUTC, wallMinutes_std: wallMinutes, stdOff, dstActive };
   }
-
-  function wallClockToUTCms_Offset(y, M, d, h, m, offsetMinutes){
-    let wallMinutes = h*60 + m; // no DST in offset mode
+  function wallClockToUTCms_Offset(y,M,d,h,m,offsetMinutes, applyDSTMap){
+    let wallMinutes = h*60 + m - (applyDSTMap ? 60 : 0);
     let dateUTC = Date.UTC(y, M-1, d, 0, 0, 0);
     while (wallMinutes < 0){ wallMinutes += 1440; dateUTC -= 86400000; }
     while (wallMinutes >= 1440){ wallMinutes -= 1440; dateUTC += 86400000; }
     const msUTC = dateUTC + wallMinutes*60000 - offsetMinutes*60000;
-    return { msUTC, wallMinutes, offsetMinutes };
+    return { msUTC, wallMinutes_std: wallMinutes, stdOff: offsetMinutes, dstActive: !!applyDSTMap };
   }
 
-  // ---------------------------
-  // Automatic render
-  // ---------------------------
+  // ---------- Automatic live ----------
   function autoUpdate(){
     const now = new Date();
     const tz = resolvedLocalZone();
@@ -384,14 +474,14 @@
 
     try{
       const y = now.getFullYear(), M = now.getMonth()+1, d = now.getDate(), h = now.getHours(), mi = now.getMinutes();
-      const { msUTC, wallMinutes } = wallClockToUTCms(y, M, d, h, mi, tz, 'auto');
+      const { msUTC, wallMinutes_std } = wallClockToUTCms_IANA(y, M, d, h, mi, tz, 'auto');
 
       const { moy, year } = minuteOfYearUTC0FromEpoch(msUTC);
       const anc = anchorsForYear(year);
       if (!anc) throw new Error(`Anchors not found for year ${year} in eqsol.json.`);
 
       const { dayLen, nightLen } = hourLengthsForMinute(moy, anc, hemi);
-      const { hh, mm } = minutesToSTS(wallMinutes, dayLen, nightLen);
+      const { hh, mm } = minutesToSTS(wallMinutes_std, dayLen, nightLen);
 
       document.getElementById('liveSTS').textContent = fmtHM(hh, mm);
 
@@ -403,7 +493,7 @@
       document.getElementById('liveLine1').textContent = `${localLabel} | ${utcLabel}`;
 
       document.getElementById('liveLine2').textContent =
-        `Day hour length: ${dayLen.toFixed(2)} min | Night hour length: ${nightLen.toFixed(2)} min | minute-of-year: ${moy}`;
+        `Day hour length: ${hourLenFmt(dayLen)} | Night hour length: ${hourLenFmt(nightLen)} | minute-of-year: ${moy}`;
 
       document.getElementById('autoErr').textContent = '';
     }catch(err){
@@ -411,73 +501,208 @@
     }
   }
 
-  // ---------------------------
-  // Manual render
-  // ---------------------------
-  function manualCompute(){
+  function hourLenFmt(x){ return `${x.toFixed(2)} min`; }
+
+  // ---------- Quick convert (device zone) ----------
+  function quickC2S(){
+    const dateStr = document.getElementById('qDate').value;
+    const timeStr = document.getElementById('qTime').value;
+    const hemi = document.getElementById('hemiQuick').value;
+    const err = document.getElementById('qC2SErr');
+    err.textContent = '';
+
+    try{
+      if (!dateStr || !timeStr) throw new Error('Enter date and time.');
+      const [Y,M,D] = dateStr.split('-').map(Number);
+      const [h,m]   = timeStr.split(':').map(Number);
+      const tz = resolvedLocalZone();
+
+      const { msUTC, wallMinutes_std } = wallClockToUTCms_IANA(Y,M,D,h,m,tz,'auto');
+      const { moy, year } = minuteOfYearUTC0FromEpoch(msUTC);
+      const anc = anchorsForYear(year);
+      const { dayLen, nightLen } = hourLengthsForMinute(moy, anc, hemi);
+      const { hh, mm, stsMin } = minutesToSTS(wallMinutes_std, dayLen, nightLen);
+
+      document.getElementById('qC2SOut').textContent = `STS: ${fmtHM(hh,mm)}`;
+      document.getElementById('qC2SDet').textContent =
+        `UTC 0: ${fmtIsoUTC0(new Date(msUTC))} | Day/Night: ${dayLen.toFixed(2)} / ${nightLen.toFixed(2)} | minute-of-year: ${moy}`;
+      document.getElementById('qC2SInfo').textContent = `${fmtIsoLocal(new Date(Y, M-1, D, h, m))} (${tz})`;
+      dbgSet({context:'Quick C→S', tz, wallMinutes_std, msUTC:new Date(msUTC).toISOString(), moy, dayLen, nightLen, stsMin, hemi});
+    }catch(e){ err.textContent = e.message || String(e); }
+  }
+
+  // Iterative helper to get day/night for STS→Civil on a given date/zone
+  function iterateDayLengthsForDate(y,M,d, tzOrOffset, isIANA, hemi, stsMin, dstModeOrToggle){
+    // initial guess: local noon (standard) → UTC
+    const stdOff = isIANA ? standardOffsetForYear(tzOrOffset, y) : tzOrOffset;
+    const dateUTC = Date.UTC(y, M-1, d, 0, 0, 0);
+    let msUTC = dateUTC + 12*60*60000 - stdOff*60000;
+
+    let lastW = null, wm = null, moy = null, year=null, anc=null, dayLen=null, nightLen=null;
+    for (let i=0;i<2;i++){ // 2 iterations are plenty
+      ({ moy, year } = minuteOfYearUTC0FromEpoch(msUTC));
+      anc = anchorsForYear(year);
+      ({ dayLen, nightLen } = hourLengthsForMinute(moy, anc, hemi));
+      wm = stsToWallMinutes(stsMin, dayLen, nightLen); // standard wall minutes (no DST)
+      msUTC = dateUTC + wm*60000 - stdOff*60000;
+      if (lastW !== null && Math.abs(wm-lastW) < 0.5) break;
+      lastW = wm;
+    }
+    return { wm, msUTC, moy, year, dayLen, nightLen };
+  }
+
+  function quickS2C(){
+    const dateStr = document.getElementById('qDateR').value;
+    const timeSTS = document.getElementById('qTimeSTS').value;
+    const hemi = document.getElementById('hemiQuick').value;
+    const err = document.getElementById('qS2CErr');
+    err.textContent = '';
+    try{
+      if (!dateStr || !timeSTS) throw new Error('Enter date and STS time.');
+      const [Y,M,D] = dateStr.split('-').map(Number);
+      const [hs,ms] = timeSTS.split(':').map(Number);
+      const stsMin = hs*60 + ms;
+      const tz = resolvedLocalZone();
+
+      const { wm, msUTC, moy, year, dayLen, nightLen } =
+        iterateDayLengthsForDate(Y,M,D, tz, true, hemi, stsMin, 'auto');
+
+      // DST for display (device zone, auto)
+      const dstActive = isDSTActiveAtUTCInstant(tz, msUTC);
+      let localMin = wm + (dstActive ? 60 : 0);
+      let dayShift = 0;
+      if (localMin >= 1440){ localMin -= 1440; dayShift = +1; }
+      if (localMin < 0){ localMin += 1440; dayShift = -1; }
+
+      const hh = Math.floor(localMin/60), mm = Math.round(localMin%60) % 60;
+      const label = `Local: ${fmtHM(hh,mm)}${dayShift!==0 ? ' ' + (dayShift>0?'(next day)':'(prev day)') : ''}`;
+      document.getElementById('qS2COut').textContent = label;
+
+      document.getElementById('qS2CDet').textContent =
+        `UTC 0: ${fmtIsoUTC0(new Date(msUTC))} | Day/Night: ${dayLen.toFixed(2)} / ${nightLen.toFixed(2)} | minute-of-year: ${moy}`;
+      document.getElementById('qS2CInfo').textContent = `${Y}-${pad2(M)}-${pad2(D)} STS ${fmtHM(hs,ms)} (${tz})`;
+
+      dbgSet({context:'Quick S→C', tz, dstActive, wm, localMin, msUTC:new Date(msUTC).toISOString(), moy, dayLen, nightLen, hemi});
+    }catch(e){ err.textContent = e.message || String(e); }
+  }
+
+  // ---------- Manual (Advanced) Civil → STS ----------
+  function manualC2S(){
+    const hemi = document.getElementById('hemiMan').value;
+    const mode = document.getElementById('zoneModeA').value;
     const dateStr = document.getElementById('dateIn').value;
     const timeStr = document.getElementById('timeIn').value;
-    const zoneMode = document.getElementById('zoneMode').value;
-    const tz = (document.getElementById('tzIn').value || '').trim();
-    const offsetStr = (document.getElementById('offsetIn').value || '').trim();
-    const dstMode = document.getElementById('dstIn').value;
-    const hemi = document.getElementById('hemiMan').value;
-
-    const errEl = document.getElementById('manErr');
-    errEl.textContent = '';
+    const err = document.getElementById('manErr'); err.textContent = '';
 
     try{
       if (!dateStr || !timeStr) throw new Error('Please enter date and time.');
-
       const [Y,M,D] = dateStr.split('-').map(Number);
       const [h,m]   = timeStr.split(':').map(Number);
 
-      let msUTC, wallMinutes, labelZone, offNow;
-
-      if (zoneMode === 'offset'){
-        const offMin = parseUTCOffsetToMinutes(offsetStr);
-        ({ msUTC, wallMinutes } = wallClockToUTCms_Offset(Y, M, D, h, m, offMin));
-        offNow = offMin;
-        labelZone = `UTC${offMin>=0?'+':''}${Math.trunc(offMin/60)}:${pad2(Math.abs(offMin%60))}`;
-      } else {
-        if (!tz) throw new Error('Please enter a valid IANA time zone (e.g., Europe/Rome).');
-        // Validate zone (throws if invalid)
+      let msUTC, wallMinutes_std, stdOff, dstActive, tzLabel, offNow;
+      if (mode === 'iana'){
+        const tz = (document.getElementById('tzIn').value||'').trim();
+        const dstMode = document.getElementById('dstIn').value;
+        if(!tz) throw new Error('Enter a valid IANA zone (e.g., Europe/Rome).');
         void new Intl.DateTimeFormat('en-US', { timeZone: tz }).format();
-        ({ msUTC, wallMinutes } = wallClockToUTCms(Y, M, D, h, m, tz, dstMode));
-        const inst = new Date(msUTC);
-        offNow = offsetMinutesForZone(inst, tz);
-        labelZone = `${tz}`;
+        ({ msUTC, wallMinutes_std, stdOff, dstActive } = wallClockToUTCms_IANA(Y,M,D,h,m,tz,dstMode));
+        offNow = offsetMinutesForZone(new Date(msUTC), tz);
+        tzLabel = `${tz}`;
+      } else {
+        const offStr = (document.getElementById('offsetIn').value||'').trim();
+        const applyDST = document.getElementById('offsetDSTMapA').checked;
+        const offMin = parseUTCOffsetToMinutes(offStr);
+        ({ msUTC, wallMinutes_std, stdOff, dstActive } = wallClockToUTCms_Offset(Y,M,D,h,m,offMin, applyDST));
+        offNow = offMin + (applyDST ? 60 : 0);
+        tzLabel = `UTC${offMin>=0?'+':''}${Math.trunc(offMin/60)}:${pad2(Math.abs(offMin%60))}`;
       }
 
       const { moy, year } = minuteOfYearUTC0FromEpoch(msUTC);
       const anc = anchorsForYear(year);
-      if (!anc) throw new Error(`Anchors not found for year ${year} in eqsol.json.`);
-
       const { dayLen, nightLen } = hourLengthsForMinute(moy, anc, hemi);
-      const { hh, mm } = minutesToSTS(wallMinutes, dayLen, nightLen);
+      const { hh, mm, stsMin } = minutesToSTS(wallMinutes_std, dayLen, nightLen);
 
-      document.getElementById('manSTS').textContent = fmtHM(hh, mm);
-
-      const inst = new Date(msUTC);
-      const sign = offNow>=0?'+':'';
-      const offTxt = `UTC${sign}${Math.trunc(offNow/60)}:${pad2(Math.abs(offNow%60))}`;
-      const localLabel = `${Y}-${pad2(M)}-${pad2(D)} ${pad2(h)}:${pad2(m)} (${offTxt}, ${labelZone})`;
-      const utcLabel   = `${fmtIsoUTC0(inst)} (UTC 0)`;
+      document.getElementById('manSTS').textContent = `STS: ${fmtHM(hh,mm)}`;
+      const utcLabel = `${fmtIsoUTC0(new Date(msUTC))} (UTC 0)`;
+      const localLabel = `${Y}-${pad2(M)}-${pad2(D)} ${pad2(h)}:${pad2(m)} (${tzLabel})`;
       document.getElementById('manLine1').textContent = `${localLabel} | ${utcLabel}`;
-
       document.getElementById('manLine2').textContent =
-        `Day hour length: ${dayLen.toFixed(2)} min | Night hour length: ${nightLen.toFixed(2)} min | minute-of-year: ${moy}`;
-    }catch(err){
-      errEl.textContent = err.message || String(err);
-      document.getElementById('manSTS').textContent = '--:--';
-      document.getElementById('manLine1').textContent = 'Local time | UTC 0';
-      document.getElementById('manLine2').textContent = 'Day hour length: — min | Night hour length: — min | minute-of-year: —';
+        `Day/Night: ${dayLen.toFixed(2)} / ${nightLen.toFixed(2)} | minute-of-year: ${moy}`;
+
+      dbgSet({context:'Manual C→S', mode, tzLabel, stdOff, dstActive, wallMinutes_std, msUTC:new Date(msUTC).toISOString(), moy, dayLen, nightLen, stsMin, hemi});
+    }catch(e){
+      err.textContent = e.message || String(e);
+      document.getElementById('manSTS').textContent = 'STS: --:--';
+      document.getElementById('manLine1').textContent = 'Local | UTC 0';
+      document.getElementById('manLine2').textContent = 'Day/Night: — / — | minute-of-year: —';
     }
   }
 
-  // ---------------------------
-  // Wake Lock (Keep screen on)
-  // ---------------------------
+  // ---------- Manual (Advanced) STS → Civil ----------
+  function manualS2C(){
+    const hemi = document.getElementById('hemiMan').value;
+    const mode = document.getElementById('zoneModeB').value;
+    const dateStr = document.getElementById('dateRev').value;
+    const timeSTS = document.getElementById('timeRevSTS').value;
+    const err = document.getElementById('revErr'); err.textContent='';
+
+    try{
+      if (!dateStr || !timeSTS) throw new Error('Please enter date and STS time.');
+      const [Y,M,D] = dateStr.split('-').map(Number);
+      const [hs,ms] = timeSTS.split(':').map(Number);
+      const stsMin = hs*60 + ms;
+
+      let wm, msUTC, moy, year, dayLen, nightLen, tzLabel, dstActiveDisp=false;
+      if (mode === 'iana'){
+        const tz = (document.getElementById('tzRev').value||'').trim();
+        const dstMode = document.getElementById('dstRev').value;
+        if(!tz) throw new Error('Enter a valid IANA zone (e.g., Europe/Rome).');
+        void new Intl.DateTimeFormat('en-US', { timeZone: tz }).format();
+
+        ({ wm, msUTC, moy, year, dayLen, nightLen } =
+          iterateDayLengthsForDate(Y,M,D, tz, true, hemi, stsMin, dstMode));
+
+        // DST for display (IANA path)
+        if (dstMode === 'on') dstActiveDisp = true;
+        else if (dstMode === 'off') dstActiveDisp = false;
+        else dstActiveDisp = isDSTActiveAtUTCInstant(tz, msUTC);
+        tzLabel = `${tz}`;
+      } else {
+        const offStr = (document.getElementById('offsetRev').value||'').trim();
+        const applyDST = document.getElementById('offsetDSTMapB').checked;
+        const offMin = parseUTCOffsetToMinutes(offStr);
+
+        ({ wm, msUTC, moy, year, dayLen, nightLen } =
+          iterateDayLengthsForDate(Y,M,D, offMin, false, hemi, stsMin, applyDST));
+
+        // In Offset mode, “DST mapping” toggle = add +60′ for display if ON
+        dstActiveDisp = !!applyDST;
+        tzLabel = `UTC${offMin>=0?'+':''}${Math.trunc(offMin/60)}:${pad2(Math.abs(offMin%60))}`;
+      }
+
+      let localMin = wm + (dstActiveDisp ? 60 : 0);
+      let dayShift = 0;
+      if (localMin >= 1440){ localMin -= 1440; dayShift = +1; }
+      if (localMin < 0){ localMin += 1440; dayShift = -1; }
+      const hh = Math.floor(localMin/60), mm = Math.round(localMin%60) % 60;
+
+      const badge = dayShift!==0 ? ` <span class="badge">${dayShift>0?'next day':'prev day'}</span>` : '';
+      document.getElementById('revLocal').innerHTML = `Local: ${fmtHM(hh,mm)}${badge}`;
+      document.getElementById('revLine1').textContent =
+        `${Y}-${pad2(M)}-${pad2(D)} STS ${fmtHM(hs,ms)} (${tzLabel}) | ${fmtIsoUTC0(new Date(msUTC))} (UTC 0)`;
+      document.getElementById('revLine2').textContent =
+        `Day/Night: ${dayLen.toFixed(2)} / ${nightLen.toFixed(2)} | minute-of-year: ${moy}`;
+
+      dbgSet({context:'Manual S→C', mode, tzLabel, wm, dstActiveDisp, localMin, msUTC:new Date(msUTC).toISOString(), moy, dayLen, nightLen, hemi, stsMin});
+    }catch(e){
+      err.textContent = e.message || String(e);
+      document.getElementById('revLocal').textContent = 'Local: --:--';
+      document.getElementById('revLine1').textContent = 'Local date/time | UTC 0';
+      document.getElementById('revLine2').textContent = 'Day/Night: — / — | minute-of-year: —';
+    }
+  }
+
+  // ---------- Wake Lock ----------
   let wakeLock = null;
   async function requestWakeLock(){
     try{
@@ -490,22 +715,24 @@
       document.getElementById('keepAwake').checked = false;
     }
   }
-  function releaseWakeLock(){
-    if (wakeLock){ wakeLock.release(); wakeLock = null; }
-  }
+  function releaseWakeLock(){ if (wakeLock){ wakeLock.release(); wakeLock = null; } }
   document.addEventListener('visibilitychange', ()=>{ if (document.visibilityState === 'visible' && document.getElementById('keepAwake').checked){ requestWakeLock(); } });
 
-  // ---------------------------
-  // Boot
-  // ---------------------------
+  // ---------- Debug ----------
+  function dbgSet(obj){
+    const box = document.getElementById('dbgOut');
+    try{ box.textContent = JSON.stringify(obj, null, 2); }catch{ box.textContent = String(obj); }
+  }
+
+  // ---------- Boot ----------
   document.addEventListener('DOMContentLoaded', async () => {
-    try{
-      await loadEqSolDB();
-    }catch(err){
+    try{ await loadEqSolDB(); }catch(err){
       document.getElementById('autoErr').textContent = err.message || String(err);
       document.getElementById('manErr').textContent = err.message || String(err);
+      document.getElementById('revErr').textContent = err.message || String(err);
     }
 
+    // Live kick & tick
     const kick = ()=>{
       autoUpdate();
       const now = new Date();
@@ -514,27 +741,27 @@
     };
     kick();
 
-    // UI listeners
+    // Quick listeners
+    document.getElementById('qBtnC2S').addEventListener('click', quickC2S);
+    document.getElementById('qBtnS2C').addEventListener('click', quickS2C);
+
+    // Manual listeners
+    const modeA = document.getElementById('zoneModeA');
+    const modeB = document.getElementById('zoneModeB');
+    const ianaA = document.getElementById('ianaBoxA');
+    const offA  = document.getElementById('offsetBoxA');
+    const ianaB = document.getElementById('ianaBoxB');
+    const offB  = document.getElementById('offsetBoxB');
+
+    function syncA(){ const isOff = modeA.value==='offset'; ianaA.style.display = isOff?'none':''; offA.style.display = isOff?'':''; }
+    function syncB(){ const isOff = modeB.value==='offset'; ianaB.style.display = isOff?'none':''; offB.style.display = isOff?'':''; }
+    modeA.addEventListener('change', syncA); syncA();
+    modeB.addEventListener('change', syncB); syncB();
+
+    document.getElementById('btnCalcA').addEventListener('click', manualC2S);
+    document.getElementById('btnCalcB').addEventListener('click', manualS2C);
     document.getElementById('hemiAuto').addEventListener('change', autoUpdate);
-    document.getElementById('btnCalc').addEventListener('click', manualCompute);
-    document.getElementById('hemiMan').addEventListener('change', manualCompute);
-
-    // Zone mode toggle
-    const zoneModeSel = document.getElementById('zoneMode');
-    const ianaBox = document.getElementById('ianaBox');
-    const offsetBox = document.getElementById('offsetBox');
-    const dstSel = document.getElementById('dstIn');
-    const dstNote = document.getElementById('dstNote');
-
-    function syncZoneMode(){
-      const isOffset = zoneModeSel.value === 'offset';
-      ianaBox.style.display = isOffset ? 'none' : '';
-      offsetBox.style.display = isOffset ? '' : 'none';
-      dstSel.disabled = isOffset;
-      dstNote.style.display = isOffset ? '' : 'none';
-    }
-    zoneModeSel.addEventListener('change', syncZoneMode);
-    syncZoneMode();
+    document.getElementById('hemiMan').addEventListener('change', ()=>{ /* no auto-calc */ });
 
     // Keep screen on toggle
     const keepAwake = document.getElementById('keepAwake');
@@ -547,7 +774,6 @@
     document.getElementById('btnAbout').addEventListener('click', async ()=>{
       const card = document.getElementById('aboutCard');
       const box  = document.getElementById('aboutContent');
-
       if (card.style.display === 'none') {
         box.textContent = 'Loading…';
         try {
@@ -564,7 +790,7 @@
       }
     });
 
-    // PWA: register service worker (best-effort)
+    // PWA SW
     if ('serviceWorker' in navigator){
       try{ await navigator.serviceWorker.register('./service-worker.js'); }catch{}
     }
