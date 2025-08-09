@@ -17,11 +17,13 @@
     img,svg,video{max-width:100%;height:auto;display:block}
 
     .wrap{max-width:980px;margin:0 auto;padding:20px}
-    /* Header row: title left, current clock right (desktop); stacked on mobile */
+
+    /* Header row: centered brand left, current clock right (desktop); stacked on mobile */
     .header{display:flex;gap:16px;align-items:flex-start;justify-content:space-between}
-    .header-title{min-width:0}
-    h1{font-size:1.6rem;margin:0 0 4px}
-    .sub{color:var(--muted);margin:0 0 18px}
+    .header-title{flex:1; text-align:center}
+    .brand-1{font-size:clamp(2.6rem, 12vw, 5rem); line-height:1; margin:0}
+    .brand-2{font-size:clamp(1.2rem, 4vw, 2.2rem); line-height:1.15; margin:4px 0 6px}
+    .brand-3{color:var(--muted); font-size:clamp(1.0rem, 3.2vw, 1.2rem); margin:0}
 
     .grid{display:grid;gap:16px;grid-template-columns:1fr}
     @media (min-width:980px){ .grid{grid-template-columns:1fr 1fr} }
@@ -47,12 +49,9 @@
     /* Mobile polish */
     @media (max-width:980px){
       .header{flex-direction:column;align-items:stretch}
-      h1,.sub{text-align:center}
     }
     @media (max-width:520px){
       .wrap{padding:14px}
-      h1{font-size:1.3rem}
-      .sub{font-size:0.95rem}
       .card{padding:12px}
       .grid{gap:12px}
       .row{gap:8px}
@@ -69,14 +68,15 @@
 </head>
 <body>
   <div class="wrap">
-    <!-- Header row: title + CURRENT STS TIME -->
+    <!-- Header row: brand + CURRENT STS TIME -->
     <div class="header">
       <div class="header-title">
-        <h1>STS — Seasonal Time System</h1>
-        <p class="sub">Aligning time with natural rhythms.</p>
+        <h1 class="brand-1">STS</h1>
+        <h2 class="brand-2">Seasonal Time System</h2>
+        <p class="brand-3">Aligning time with natural rhythms</p>
       </div>
 
-      <!-- CURRENT STS TIME (formerly “Automatic”) -->
+      <!-- CURRENT STS TIME -->
       <div class="card" style="flex:0 1 460px;">
         <div class="row" style="justify-content:space-between;">
           <strong>Current STS time</strong>
@@ -141,14 +141,13 @@
           <input id="qTimeSTS" type="time" step="60" placeholder="hh:mm">
           <div class="row" style="justify-content:space-between; margin-top:10px">
             <button id="qBtnS2C">Convert</button>
-            <span id="qS2CInfo" class="tiny muted"></span>
+            <span id="qS2CInfo" class="tiny muted">Output can be next day when DST is active.</span>
           </div>
           <div id="qS2COut" style="margin-top:8px">Local: —</div>
           <div id="qS2CDet" class="tiny">UTC 0: — | Day/Night: — / — | minute-of-year: — | DST: —</div>
           <div id="qS2CErr" class="tiny error"></div>
         </div>
       </div>
-      <!-- Nota contestuale: comparirà solo quando serve nel risultato (badge) -->
     </div>
 
     <div class="grid" style="margin-top:16px">
@@ -157,19 +156,19 @@
         <div class="row" style="justify-content:space-between;">
           <strong>Manual (Advanced)</strong>
           <span class="tiny muted">Manual panel does not affect the live clock.</span>
-          <div class="row">
-            <span class="muted">Hemisphere</span>
-            <select id="hemiMan">
-              <option value="north" selected>North</option>
-              <option value="south">South</option>
-            </select>
-          </div>
         </div>
 
         <!-- Civil -> STS (Advanced) -->
         <div class="sep"></div>
         <div class="row" style="justify-content:space-between;">
           <strong>Civil → STS</strong>
+          <div class="row">
+            <span class="muted">Hemisphere</span>
+            <select id="hemiManA">
+              <option value="north" selected>North</option>
+              <option value="south">South</option>
+            </select>
+          </div>
           <div class="row">
             <span class="muted">Zone input</span>
             <select id="zoneModeA">
@@ -225,6 +224,13 @@
         <div class="sep" style="margin-top:14px"></div>
         <div class="row" style="justify-content:space-between;">
           <strong>STS → Civil</strong>
+          <div class="row">
+            <span class="muted">Hemisphere</span>
+            <select id="hemiManB">
+              <option value="north" selected>North</option>
+              <option value="south">South</option>
+            </select>
+          </div>
           <div class="row">
             <span class="muted">Zone input</span>
             <select id="zoneModeB">
@@ -284,7 +290,7 @@
         </details>
       </div>
 
-      <!-- About/Credits trigger + container -->
+      <!-- About/Credits -->
       <div class="card">
         <div class="row" style="justify-content:center; margin: 8px 0 0;">
           <button id="btnAbout">About/Credits</button>
@@ -304,7 +310,6 @@
   const fmtHM = (h,m) => `${pad2(h)}:${pad2(m)}`;
   const fmtIsoUTC0 = d => `${d.getUTCFullYear()}-${pad2(d.getUTCMonth()+1)}-${pad2(d.getUTCDate())} ${pad2(d.getUTCHours())}:${pad2(d.getUTCMinutes())}`;
   const fmtIsoLocal = d => `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())} ${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
-  const clamp = (v,a,b)=> Math.max(a, Math.min(b, v));
 
   // ---------- Load eqsol.json ----------
   let EQSOL_DB = null;
@@ -601,7 +606,7 @@
 
   // ---------- Manual (Advanced) Civil → STS ----------
   function manualC2S(){
-    const hemi = document.getElementById('hemiMan').value;
+    const hemi = document.getElementById('hemiManA').value;
     const mode = document.getElementById('zoneModeA').value;
     const dateStr = document.getElementById('dateIn').value;
     const timeStr = document.getElementById('timeIn').value;
@@ -653,7 +658,7 @@
 
   // ---------- Manual (Advanced) STS → Civil ----------
   function manualS2C(){
-    const hemi = document.getElementById('hemiMan').value;
+    const hemi = document.getElementById('hemiManB').value;
     const mode = document.getElementById('zoneModeB').value;
     const dateStr = document.getElementById('dateRev').value;
     const timeSTS = document.getElementById('timeRevSTS').value;
@@ -756,7 +761,7 @@
     document.getElementById('qBtnC2S').addEventListener('click', quickC2S);
     document.getElementById('qBtnS2C').addEventListener('click', quickS2C);
 
-    // Manual listeners
+    // Manual listeners & visibility
     const modeA = document.getElementById('zoneModeA');
     const modeB = document.getElementById('zoneModeB');
     const ianaA = document.getElementById('ianaBoxA');
@@ -772,32 +777,6 @@
     document.getElementById('btnCalcA').addEventListener('click', manualC2S);
     document.getElementById('btnCalcB').addEventListener('click', manualS2C);
     document.getElementById('hemiAuto').addEventListener('change', autoUpdate);
-    document.getElementById('hemiMan').addEventListener('change', ()=>{ /* no auto-calc */ });
-
-    // About/Credits loader
-    document.getElementById('btnAbout').addEventListener('click', async ()=>{
-      const card = document.getElementById('aboutCard');
-      const box  = document.getElementById('aboutContent');
-      if (card.style.display === 'none') {
-        box.textContent = 'Loading…';
-        try {
-          const res = await fetch('./about-credits.html', { cache: 'no-cache' });
-          if (!res.ok) throw new Error('Cannot load about-credits.html');
-          box.innerHTML = await res.text();
-        } catch (e) {
-          box.textContent = e.message || String(e);
-        }
-        card.style.display = 'block';
-        card.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      } else {
-        card.style.display = 'none';
-      }
-    });
-
-    // PWA SW
-    if ('serviceWorker' in navigator){
-      try{ await navigator.serviceWorker.register('./service-worker.js'); }catch{}
-    }
   });
   </script>
 </body>
