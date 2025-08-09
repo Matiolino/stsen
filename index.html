@@ -65,8 +65,6 @@
 
     .error{color:var(--danger)}
     .badge{display:inline-block; padding:2px 8px; border-radius:999px; background:#203049; color:#cfe8ff; font-size:0.75rem; margin-left:6px}
-    details summary{cursor:pointer; color:var(--muted)}
-    code.inline{background:#0f1420; padding:0 4px; border-radius:4px}
   </style>
 </head>
 <body>
@@ -275,13 +273,6 @@
         <div id="revLine1" class="small">Local date/time | UTC 0</div>
         <div id="revLine2" class="tiny">Day/Night: — / — | minute-of-year: —</div>
         <div id="revErr" class="tiny error"></div>
-
-        <!-- Debug -->
-        <div class="sep" style="margin-top:14px"></div>
-        <details id="dbgBox">
-          <summary>Debug (last calc)</summary>
-          <pre id="dbgOut" class="tiny" style="white-space:pre-wrap; margin-top:8px; color:#9fb4c9">—</pre>
-        </details>
       </div>
 
       <!-- About/Credits -->
@@ -747,10 +738,35 @@
   function releaseWakeLock(){ if (wakeLock){ wakeLock.release(); wakeLock = null; } }
   document.addEventListener('visibilitychange', ()=>{ if (document.visibilityState === 'visible' && document.getElementById('keepAwake').checked){ requestWakeLock(); } });
 
-  // ---------- Debug ----------
-  function dbgSet(obj){
-    const box = document.getElementById('dbgOut');
-    try{ box.textContent = JSON.stringify(obj, null, 2); }catch{ box.textContent = String(obj); }
+  // ---------- Debug (no-op) ----------
+  function dbgSet(){ /* intentionally empty */ }
+
+  // ---------- About/Credits loader ----------
+  function setupAbout(){
+    const btn = document.getElementById('btnAbout');
+    const card = document.getElementById('aboutCard');
+    const box  = document.getElementById('aboutContent');
+    if (!btn || !card || !box) return;
+
+    btn.addEventListener('click', async ()=>{
+      const opening = (card.style.display === 'none' || !card.style.display);
+      if (opening){
+        box.textContent = 'Loading…';
+        try{
+          let res = await fetch('./about-credits.html', { cache:'no-cache' });
+          if (!res.ok) { res = await fetch('./about.html', { cache:'no-cache' }); }
+          if (!res.ok) throw new Error('Cannot load about content.');
+          const html = await res.text();
+          box.innerHTML = html;
+        }catch(e){
+          box.textContent = e.message || String(e);
+        }
+        card.style.display = 'block';
+        card.scrollIntoView({ behavior:'smooth', block:'start' });
+      } else {
+        card.style.display = 'none';
+      }
+    });
   }
 
   // ---------- Boot ----------
@@ -783,14 +799,30 @@
     const ianaB = document.getElementById('ianaBoxB');
     const offB  = document.getElementById('offsetBoxB');
 
-    function syncA(){ const isOff = modeA.value==='offset'; ianaA.style.display = isOff?'none':''; offA.style.display = isOff?'':''; }
-    function syncB(){ const isOff = modeB.value==='offset'; ianaB.style.display = isOff?'none':''; offB.style.display = isOff?'':''; }
+    function syncA(){
+      const isOff = modeA.value==='offset';
+      ianaA.style.display = isOff ? 'none' : '';
+      offA.style.display  = isOff ? '' : 'none';
+      // disable inputs when hidden (for clarity)
+      offA.querySelectorAll('input,select').forEach(el => el.disabled = !isOff);
+      ianaA.querySelectorAll('input,select').forEach(el => el.disabled = isOff);
+    }
+    function syncB(){
+      const isOff = modeB.value==='offset';
+      ianaB.style.display = isOff ? 'none' : '';
+      offB.style.display  = isOff ? '' : 'none';
+      offB.querySelectorAll('input,select').forEach(el => el.disabled = !isOff);
+      ianaB.querySelectorAll('input,select').forEach(el => el.disabled = isOff);
+    }
     modeA.addEventListener('change', syncA); syncA();
     modeB.addEventListener('change', syncB); syncB();
 
     document.getElementById('btnCalcA').addEventListener('click', manualC2S);
     document.getElementById('btnCalcB').addEventListener('click', manualS2C);
     document.getElementById('hemiAuto').addEventListener('change', autoUpdate);
+
+    // About/Credits
+    setupAbout();
   });
   </script>
 </body>
