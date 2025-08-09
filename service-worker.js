@@ -1,5 +1,5 @@
 // Simple cache-first service worker for STS
-const CACHE_NAME = 'sts-cache-v9';
+const CACHE_NAME = 'sts-cache-v2_0';
 const CORE_ASSETS = [
   '/sts-web/',                 // start URL on GitHub Pages
   '/sts-web/index.html',
@@ -44,5 +44,6 @@ self.addEventListener('fetch', (event) => {
     })
   );
 });
+
 
 
