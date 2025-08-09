@@ -17,8 +17,11 @@
     img,svg,video{max-width:100%;height:auto;display:block}
 
     .wrap{max-width:980px;margin:0 auto;padding:20px}
-    h1{font-size:1.6rem;margin:0 0 4px;text-align:center}
-    .sub{color:var(--muted);margin:0 0 18px;text-align:center}
+    /* Header row: title left, current clock right (desktop); stacked on mobile */
+    .header{display:flex;gap:16px;align-items:flex-start;justify-content:space-between}
+    .header-title{min-width:0}
+    h1{font-size:1.6rem;margin:0 0 4px}
+    .sub{color:var(--muted);margin:0 0 18px}
 
     .grid{display:grid;gap:16px;grid-template-columns:1fr}
     @media (min-width:980px){ .grid{grid-template-columns:1fr 1fr} }
@@ -36,13 +39,16 @@
 
     /* Clocks */
     #liveSTS{font-size:clamp(2.6rem, 12vw, 5rem); line-height:1; letter-spacing:0.5px}
-    #manSTS,#revLocal{font-size:clamp(1.8rem, 7vw, 2.4rem); line-height:1.1}
+    #manSTS,#revLocal,#qC2SOut,#qS2COut{font-size:clamp(1.8rem, 7vw, 2.4rem); line-height:1.1}
 
-    /* Two-column controls */
     .cols2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
     .cols3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
 
     /* Mobile polish */
+    @media (max-width:980px){
+      .header{flex-direction:column;align-items:stretch}
+      h1,.sub{text-align:center}
+    }
     @media (max-width:520px){
       .wrap{padding:14px}
       h1{font-size:1.3rem}
@@ -63,11 +69,41 @@
 </head>
 <body>
   <div class="wrap">
-    <h1>STS — Seasonal Time System</h1>
-    <p class="sub">Aligning time with natural rhythms.</p>
+    <!-- Header row: title + CURRENT STS TIME -->
+    <div class="header">
+      <div class="header-title">
+        <h1>STS — Seasonal Time System</h1>
+        <p class="sub">Aligning time with natural rhythms.</p>
+      </div>
+
+      <!-- CURRENT STS TIME (formerly “Automatic”) -->
+      <div class="card" style="flex:0 1 460px;">
+        <div class="row" style="justify-content:space-between;">
+          <strong>Current STS time</strong>
+          <div class="row">
+            <span class="muted">Hemisphere</span>
+            <select id="hemiAuto">
+              <option value="north" selected>North</option>
+              <option value="south">South</option>
+            </select>
+          </div>
+        </div>
+
+        <div id="liveSTS">--:--</div>
+        <div class="row" style="justify-content:space-between; gap:12px; margin-top:8px;">
+          <div class="small" id="liveLine1">Local time | UTC 0</div>
+          <label class="tiny" style="display:flex;align-items:center;gap:6px">
+            <input id="keepAwake" type="checkbox" style="width:auto;height:auto"> Keep screen on
+          </label>
+        </div>
+        <div id="liveLine2" class="tiny">Day hour length: — min | Night hour length: — min | minute-of-year: —</div>
+        <div id="liveDST" class="tiny">DST: —</div>
+        <div id="autoErr" class="tiny error"></div>
+      </div>
+    </div>
 
     <!-- QUICK CONVERT (device zone, DST Auto) -->
-    <div class="card">
+    <div class="card" style="margin-top:16px">
       <div class="row" style="justify-content:space-between;">
         <strong>Quick convert (device zone, DST auto)</strong>
         <div class="row">
@@ -91,8 +127,8 @@
             <button id="qBtnC2S">Convert</button>
             <span id="qC2SInfo" class="tiny muted"></span>
           </div>
-          <div id="qC2SOut" class="small" style="margin-top:8px">STS: —</div>
-          <div id="qC2SDet" class="tiny">UTC 0: — | Day/Night: — / — | minute-of-year: —</div>
+          <div id="qC2SOut" style="margin-top:8px">STS: —</div>
+          <div id="qC2SDet" class="tiny">UTC 0: — | Day/Night: — / — | minute-of-year: — | DST: —</div>
           <div id="qC2SErr" class="tiny error"></div>
         </div>
 
@@ -107,42 +143,20 @@
             <button id="qBtnS2C">Convert</button>
             <span id="qS2CInfo" class="tiny muted"></span>
           </div>
-          <div id="qS2COut" class="small" style="margin-top:8px">Local: —</div>
-          <div id="qS2CDet" class="tiny">UTC 0: — | Day/Night: — / — | minute-of-year: —</div>
+          <div id="qS2COut" style="margin-top:8px">Local: —</div>
+          <div id="qS2CDet" class="tiny">UTC 0: — | Day/Night: — / — | minute-of-year: — | DST: —</div>
           <div id="qS2CErr" class="tiny error"></div>
         </div>
       </div>
+      <!-- Nota contestuale: comparirà solo quando serve nel risultato (badge) -->
     </div>
 
     <div class="grid" style="margin-top:16px">
-      <!-- AUTOMATIC LIVE -->
-      <div class="card">
-        <div class="row" style="justify-content:space-between;">
-          <strong>Automatic</strong>
-          <div class="row">
-            <span class="muted">Hemisphere</span>
-            <select id="hemiAuto">
-              <option value="north" selected>North</option>
-              <option value="south">South</option>
-            </select>
-          </div>
-        </div>
-
-        <div id="liveSTS">--:--</div>
-        <div class="row" style="justify-content:space-between; gap:12px; margin-top:8px;">
-          <div class="small" id="liveLine1">Local time | UTC 0</div>
-          <label class="tiny" style="display:flex;align-items:center;gap:6px">
-            <input id="keepAwake" type="checkbox" style="width:auto;height:auto"> Keep screen on
-          </label>
-        </div>
-        <div id="liveLine2" class="tiny">Day hour length: — min | Night hour length: — min | minute-of-year: —</div>
-        <div id="autoErr" class="tiny error"></div>
-      </div>
-
       <!-- MANUAL (Advanced) -->
       <div class="card">
         <div class="row" style="justify-content:space-between;">
           <strong>Manual (Advanced)</strong>
+          <span class="tiny muted">Manual panel does not affect the live clock.</span>
           <div class="row">
             <span class="muted">Hemisphere</span>
             <select id="hemiMan">
@@ -200,9 +214,9 @@
 
         <div class="row" style="justify-content:space-between;margin-top:10px">
           <button id="btnCalcA">Compute STS</button>
-          <span class="tiny muted">Manual panel does not affect the live clock.</span>
+          <span class="tiny muted"></span>
         </div>
-        <div id="manSTS" style="margin-top:8px; font-size:1.3rem">STS: --:--</div>
+        <div id="manSTS" style="margin-top:8px">STS: --:--</div>
         <div id="manLine1" class="small">Local | UTC 0</div>
         <div id="manLine2" class="tiny">Day/Night: — / — | minute-of-year: —</div>
         <div id="manErr" class="tiny error"></div>
@@ -255,9 +269,9 @@
 
         <div class="row" style="justify-content:space-between;margin-top:10px">
           <button id="btnCalcB">Convert to Local</button>
-          <span class="tiny muted">Output may be next day if DST adds +60′.</span>
+          <span class="tiny muted">Output can be next day when DST is active.</span>
         </div>
-        <div id="revLocal" style="margin-top:8px; font-size:1.2rem">Local: --:--</div>
+        <div id="revLocal" style="margin-top:8px">Local: --:--</div>
         <div id="revLine1" class="small">Local date/time | UTC 0</div>
         <div id="revLine2" class="tiny">Day/Night: — / — | minute-of-year: —</div>
         <div id="revErr" class="tiny error"></div>
@@ -269,18 +283,17 @@
           <pre id="dbgOut" class="tiny" style="white-space:pre-wrap; margin-top:8px; color:#9fb4c9">—</pre>
         </details>
       </div>
-    </div>
-  </div>
 
-  <!-- About/Credits -->
-  <div class="wrap">
-    <div class="row" style="justify-content:center; margin: 8px 0 0;">
-      <button id="btnAbout">About/Credits</button>
-    </div>
-
-    <div id="aboutCard" class="card" style="display:none; margin-top:12px;">
-      <div id="aboutContent" class="tiny" style="line-height:1.55; white-space:pre-wrap">
-        Loading…
+      <!-- About/Credits trigger + container -->
+      <div class="card">
+        <div class="row" style="justify-content:center; margin: 8px 0 0;">
+          <button id="btnAbout">About/Credits</button>
+        </div>
+        <div id="aboutCard" class="card" style="display:none; margin-top:12px;">
+          <div id="aboutContent" class="tiny" style="line-height:1.55; white-space:pre-wrap">
+            Loading…
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -467,6 +480,8 @@
   }
 
   // ---------- Automatic live ----------
+  function hourLenFmt(x){ return `${x.toFixed(2)} min`; }
+
   function autoUpdate(){
     const now = new Date();
     const tz = resolvedLocalZone();
@@ -486,22 +501,21 @@
       document.getElementById('liveSTS').textContent = fmtHM(hh, mm);
 
       const offNow = offsetMinutesForZone(new Date(msUTC), tz);
+      const dstNow = isDSTActiveAtUTCInstant(tz, msUTC);
       const sign = offNow>=0?'+':'';
       const offTxt = `UTC${sign}${Math.trunc(offNow/60)}:${pad2(Math.abs(offNow%60))}`;
       const localLabel = `${fmtIsoLocal(now)} (${offTxt}, ${tz})`;
       const utcLabel   = `${fmtIsoUTC0(new Date(msUTC))} (UTC 0)`;
       document.getElementById('liveLine1').textContent = `${localLabel} | ${utcLabel}`;
-
       document.getElementById('liveLine2').textContent =
         `Day hour length: ${hourLenFmt(dayLen)} | Night hour length: ${hourLenFmt(nightLen)} | minute-of-year: ${moy}`;
+      document.getElementById('liveDST').textContent = `DST: ${dstNow ? 'On' : 'Off'}`;
 
       document.getElementById('autoErr').textContent = '';
     }catch(err){
       document.getElementById('autoErr').textContent = err.message || String(err);
     }
   }
-
-  function hourLenFmt(x){ return `${x.toFixed(2)} min`; }
 
   // ---------- Quick convert (device zone) ----------
   function quickC2S(){
@@ -523,40 +537,40 @@
       const { dayLen, nightLen } = hourLengthsForMinute(moy, anc, hemi);
       const { hh, mm, stsMin } = minutesToSTS(wallMinutes_std, dayLen, nightLen);
 
+      const dstNow = isDSTActiveAtUTCInstant(tz, msUTC);
+
       document.getElementById('qC2SOut').textContent = `STS: ${fmtHM(hh,mm)}`;
       document.getElementById('qC2SDet').textContent =
-        `UTC 0: ${fmtIsoUTC0(new Date(msUTC))} | Day/Night: ${dayLen.toFixed(2)} / ${nightLen.toFixed(2)} | minute-of-year: ${moy}`;
+        `UTC 0: ${fmtIsoUTC0(new Date(msUTC))} | Day/Night: ${dayLen.toFixed(2)} / ${nightLen.toFixed(2)} | minute-of-year: ${moy} | DST: ${dstNow?'On':'Off'}`;
       document.getElementById('qC2SInfo').textContent = `${fmtIsoLocal(new Date(Y, M-1, D, h, m))} (${tz})`;
-      dbgSet({context:'Quick C→S', tz, wallMinutes_std, msUTC:new Date(msUTC).toISOString(), moy, dayLen, nightLen, stsMin, hemi});
+      dbgSet({context:'Quick C→S', tz, wallMinutes_std, msUTC:new Date(msUTC).toISOString(), moy, dayLen, nightLen, stsMin, hemi, dstNow});
     }catch(e){ err.textContent = e.message || String(e); }
   }
 
-  // Iterative helper to get day/night for STS→Civil on a given date/zone
-  function iterateDayLengthsForDate(y,M,d, tzOrOffset, isIANA, hemi, stsMin, dstModeOrToggle){
+  function iterateDayLengthsForDate(y,M,d, tzOrOffset, isIANA, hemi, stsMin){
     // initial guess: local noon (standard) → UTC
     const stdOff = isIANA ? standardOffsetForYear(tzOrOffset, y) : tzOrOffset;
     const dateUTC = Date.UTC(y, M-1, d, 0, 0, 0);
     let msUTC = dateUTC + 12*60*60000 - stdOff*60000;
 
     let lastW = null, wm = null, moy = null, year=null, anc=null, dayLen=null, nightLen=null;
-    for (let i=0;i<2;i++){ // 2 iterations are plenty
+    for (let i=0;i<2;i++){
       ({ moy, year } = minuteOfYearUTC0FromEpoch(msUTC));
       anc = anchorsForYear(year);
       ({ dayLen, nightLen } = hourLengthsForMinute(moy, anc, hemi));
-      wm = stsToWallMinutes(stsMin, dayLen, nightLen); // standard wall minutes (no DST)
+      wm = stsToWallMinutes(stsMin, dayLen, nightLen); // standard wall minutes
       msUTC = dateUTC + wm*60000 - stdOff*60000;
       if (lastW !== null && Math.abs(wm-lastW) < 0.5) break;
       lastW = wm;
     }
-    return { wm, msUTC, moy, year, dayLen, nightLen };
+    return { wm, msUTC, moy, year, dayLen, nightLen, stdOff };
   }
 
   function quickS2C(){
     const dateStr = document.getElementById('qDateR').value;
     const timeSTS = document.getElementById('qTimeSTS').value;
     const hemi = document.getElementById('hemiQuick').value;
-    const err = document.getElementById('qS2CErr');
-    err.textContent = '';
+    const err = document.getElementById('qS2CErr'); err.textContent = '';
     try{
       if (!dateStr || !timeSTS) throw new Error('Enter date and STS time.');
       const [Y,M,D] = dateStr.split('-').map(Number);
@@ -565,9 +579,8 @@
       const tz = resolvedLocalZone();
 
       const { wm, msUTC, moy, year, dayLen, nightLen } =
-        iterateDayLengthsForDate(Y,M,D, tz, true, hemi, stsMin, 'auto');
+        iterateDayLengthsForDate(Y,M,D, tz, true, hemi, stsMin);
 
-      // DST for display (device zone, auto)
       const dstActive = isDSTActiveAtUTCInstant(tz, msUTC);
       let localMin = wm + (dstActive ? 60 : 0);
       let dayShift = 0;
@@ -575,14 +588,14 @@
       if (localMin < 0){ localMin += 1440; dayShift = -1; }
 
       const hh = Math.floor(localMin/60), mm = Math.round(localMin%60) % 60;
-      const label = `Local: ${fmtHM(hh,mm)}${dayShift!==0 ? ' ' + (dayShift>0?'(next day)':'(prev day)') : ''}`;
-      document.getElementById('qS2COut').textContent = label;
+      const badge = dayShift!==0 ? ` <span class="badge">${dayShift>0?'next day':'prev day'}${dstActive?' · DST':''}</span>` : '';
+      document.getElementById('qS2COut').innerHTML = `Local: ${fmtHM(hh,mm)}${badge}`;
 
       document.getElementById('qS2CDet').textContent =
-        `UTC 0: ${fmtIsoUTC0(new Date(msUTC))} | Day/Night: ${dayLen.toFixed(2)} / ${nightLen.toFixed(2)} | minute-of-year: ${moy}`;
+        `UTC 0: ${fmtIsoUTC0(new Date(msUTC))} | Day/Night: ${dayLen.toFixed(2)} / ${nightLen.toFixed(2)} | minute-of-year: ${moy} | DST: ${dstActive?'On':'Off'}`;
       document.getElementById('qS2CInfo').textContent = `${Y}-${pad2(M)}-${pad2(D)} STS ${fmtHM(hs,ms)} (${tz})`;
 
-      dbgSet({context:'Quick S→C', tz, dstActive, wm, localMin, msUTC:new Date(msUTC).toISOString(), moy, dayLen, nightLen, hemi});
+      dbgSet({context:'Quick S→C', tz, dstActive, wm, localMin, msUTC:new Date(msUTC).toISOString(), moy, dayLen, nightLen, hemi, stsMin, dayShift});
     }catch(e){ err.textContent = e.message || String(e); }
   }
 
@@ -629,7 +642,7 @@
       document.getElementById('manLine2').textContent =
         `Day/Night: ${dayLen.toFixed(2)} / ${nightLen.toFixed(2)} | minute-of-year: ${moy}`;
 
-      dbgSet({context:'Manual C→S', mode, tzLabel, stdOff, dstActive, wallMinutes_std, msUTC:new Date(msUTC).toISOString(), moy, dayLen, nightLen, stsMin, hemi});
+      dbgSet({context:'Manual C→S', mode, tzLabel, stdOff, dstActive, wallMinutes_std, msUTC:new Date(msUTC).toISOString(), moy, dayLen, nightLen, stsMin, hemi, offNow});
     }catch(e){
       err.textContent = e.message || String(e);
       document.getElementById('manSTS').textContent = 'STS: --:--';
@@ -660,9 +673,8 @@
         void new Intl.DateTimeFormat('en-US', { timeZone: tz }).format();
 
         ({ wm, msUTC, moy, year, dayLen, nightLen } =
-          iterateDayLengthsForDate(Y,M,D, tz, true, hemi, stsMin, dstMode));
+          iterateDayLengthsForDate(Y,M,D, tz, true, hemi, stsMin));
 
-        // DST for display (IANA path)
         if (dstMode === 'on') dstActiveDisp = true;
         else if (dstMode === 'off') dstActiveDisp = false;
         else dstActiveDisp = isDSTActiveAtUTCInstant(tz, msUTC);
@@ -673,9 +685,8 @@
         const offMin = parseUTCOffsetToMinutes(offStr);
 
         ({ wm, msUTC, moy, year, dayLen, nightLen } =
-          iterateDayLengthsForDate(Y,M,D, offMin, false, hemi, stsMin, applyDST));
+          iterateDayLengthsForDate(Y,M,D, offMin, false, hemi, stsMin));
 
-        // In Offset mode, “DST mapping” toggle = add +60′ for display if ON
         dstActiveDisp = !!applyDST;
         tzLabel = `UTC${offMin>=0?'+':''}${Math.trunc(offMin/60)}:${pad2(Math.abs(offMin%60))}`;
       }
@@ -686,14 +697,14 @@
       if (localMin < 0){ localMin += 1440; dayShift = -1; }
       const hh = Math.floor(localMin/60), mm = Math.round(localMin%60) % 60;
 
-      const badge = dayShift!==0 ? ` <span class="badge">${dayShift>0?'next day':'prev day'}</span>` : '';
+      const badge = dayShift!==0 ? ` <span class="badge">${dayShift>0?'next day':'prev day'}${dstActiveDisp?' · DST':''}</span>` : '';
       document.getElementById('revLocal').innerHTML = `Local: ${fmtHM(hh,mm)}${badge}`;
       document.getElementById('revLine1').textContent =
         `${Y}-${pad2(M)}-${pad2(D)} STS ${fmtHM(hs,ms)} (${tzLabel}) | ${fmtIsoUTC0(new Date(msUTC))} (UTC 0)`;
       document.getElementById('revLine2').textContent =
         `Day/Night: ${dayLen.toFixed(2)} / ${nightLen.toFixed(2)} | minute-of-year: ${moy}`;
 
-      dbgSet({context:'Manual S→C', mode, tzLabel, wm, dstActiveDisp, localMin, msUTC:new Date(msUTC).toISOString(), moy, dayLen, nightLen, hemi, stsMin});
+      dbgSet({context:'Manual S→C', mode, tzLabel, wm, dstActiveDisp, localMin, msUTC:new Date(msUTC).toISOString(), moy, dayLen, nightLen, hemi, stsMin, dayShift});
     }catch(e){
       err.textContent = e.message || String(e);
       document.getElementById('revLocal').textContent = 'Local: --:--';
@@ -762,13 +773,6 @@
     document.getElementById('btnCalcB').addEventListener('click', manualS2C);
     document.getElementById('hemiAuto').addEventListener('change', autoUpdate);
     document.getElementById('hemiMan').addEventListener('change', ()=>{ /* no auto-calc */ });
-
-    // Keep screen on toggle
-    const keepAwake = document.getElementById('keepAwake');
-    if (!('wakeLock' in navigator)) keepAwake.parentElement.style.display = 'none';
-    keepAwake.addEventListener('change', async (e)=>{
-      if (e.target.checked) await requestWakeLock(); else releaseWakeLock();
-    });
 
     // About/Credits loader
     document.getElementById('btnAbout').addEventListener('click', async ()=>{
